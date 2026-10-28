@@ -3,6 +3,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -10,19 +11,23 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Xumeiquer/asesoria/internal/calendar"
 	"github.com/Xumeiquer/asesoria/internal/catalog"
 	"github.com/Xumeiquer/asesoria/internal/library"
 	"github.com/Xumeiquer/asesoria/internal/storage"
 	"github.com/Xumeiquer/asesoria/internal/store"
+	"github.com/Xumeiquer/asesoria/internal/webapp"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -317,24 +322,54 @@ func (s *Server) handleWeb(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   30 * 24 * 60 * 60,
 	})
 
-	clean := filepath.Clean("/" + r.URL.Path)
-	if strings.HasPrefix(clean, "/..") {
-		writeError(w, http.StatusBadRequest, "ruta no válida")
+	clean := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	if clean == "." {
+		clean = ""
+	}
+	if s.serveDiskWeb(w, r, clean) {
 		return
 	}
-	path := filepath.Join(s.WebDir, clean)
-	if info, err := os.Stat(path); err == nil && !info.IsDir() && r.URL.Path != "/" {
-		http.ServeFile(w, r, path)
-		return
+	s.serveEmbeddedWeb(w, r, clean)
+}
+
+// serveDiskWeb serves an external web build, which is useful during development
+// and for the Vite workflow. It returns false when no external build is
+// available so the embedded SPA can take over.
+func (s *Server) serveDiskWeb(w http.ResponseWriter, r *http.Request, clean string) bool {
+	if s.WebDir == "" {
+		return false
+	}
+	if clean != "" {
+		filePath := filepath.Join(s.WebDir, filepath.FromSlash(clean))
+		if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, filePath)
+			return true
+		}
 	}
 	index := filepath.Join(s.WebDir, "index.html")
 	if _, err := os.Stat(index); err != nil {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("La interfaz web no está compilada. Ejecuta `make build-web` o usa `make dev`.\n"))
-		return
+		return false
 	}
 	http.ServeFile(w, r, index)
+	return true
+}
+
+func (s *Server) serveEmbeddedWeb(w http.ResponseWriter, r *http.Request, clean string) {
+	webFS := webapp.FS()
+	if clean != "" && !strings.HasPrefix(path.Base(clean), ".") {
+		if info, err := fs.Stat(webFS, clean); err == nil && !info.IsDir() {
+			http.FileServer(http.FS(webFS)).ServeHTTP(w, r)
+			return
+		}
+	}
+	index, err := fs.ReadFile(webFS, "index.html")
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("La interfaz web no está embebida en este binario. Compila con `make build-backend`.\n"))
+		return
+	}
+	http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
 }
 
 // handleSession sets the local session cookie. It is used by the Vite dev server

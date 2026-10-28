@@ -18,7 +18,7 @@ func Load() Config {
 	return Config{
 		Addr:    env("ASESORIA_ADDR", "127.0.0.1:8787"),
 		DataDir: env("ASESORIA_DATA_DIR", defaultDataDir()),
-		WebDir:  env("ASESORIA_WEB_DIR", "web/dist"),
+		WebDir:  env("ASESORIA_WEB_DIR", ""),
 		Dev:     env("ASESORIA_DEV", "") == "1",
 		Demo:    env("ASESORIA_DEMO", "") == "1",
 	}

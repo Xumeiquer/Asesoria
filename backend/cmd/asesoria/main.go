@@ -26,7 +26,7 @@ func main() {
 	cfg := config.Load()
 	flag.StringVar(&cfg.Addr, "addr", cfg.Addr, "dirección de escucha (solo loopback por defecto)")
 	flag.StringVar(&cfg.DataDir, "data-dir", cfg.DataDir, "directorio de datos (SQLite y documentos)")
-	flag.StringVar(&cfg.WebDir, "web-dir", cfg.WebDir, "directorio con el build de la web")
+	flag.StringVar(&cfg.WebDir, "web-dir", cfg.WebDir, "directorio externo opcional con el build de la web")
 	flag.BoolVar(&cfg.Dev, "dev", cfg.Dev, "modo desarrollo (permite el origen de Vite)")
 	flag.BoolVar(&cfg.Demo, "demo", cfg.Demo, "crear datos de demostración si la base está vacía")
 	flag.Parse()

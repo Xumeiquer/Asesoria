@@ -2,6 +2,8 @@
 /bin/
 /web/dist/
 /extension/dist/
+/backend/internal/webapp/dist/*
+!/backend/internal/webapp/dist/.keep
 
 # Dependencies
 node_modules/

@@ -36,7 +36,7 @@ Todavía **no** presenta modelos, no custodia certificados y no emite facturas. 
                     SQLite + documentos en disco
 ```
 
-- **Backend** (`backend/`): Go, chi, `modernc.org/sqlite` (sin CGO), migraciones embebidas.
+- **Backend** (`backend/`): Go, chi, `modernc.org/sqlite` (sin CGO), migraciones y SPA embebidas.
 - **Web** (`web/`): Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS 4, `lucide-vue-next`.
 - **Extensión** (`extension/`): Manifest V3, TypeScript y esbuild. El popup y la página de opciones usan un diseño propio; el panel se inyecta en un shadow DOM para no interferir con la sede.
 - **Catálogo** (`backend/internal/catalog/data/models.yaml`): datos versionados por ejercicio, separados de la lógica de cálculo.
@@ -45,15 +45,17 @@ Todavía **no** presenta modelos, no custodia certificados y no emite facturas. 
 ## Requisitos
 
 - Go **1.26 o superior**.
-- Node.js **20 o superior** (probado con Node 24) y npm.
+- Node.js **20 o superior** (probado con Node 24) y npm solo para compilar la web y la extensión.
 - Chrome, Edge o Brave basado en Chromium para la extensión. Firefox no está validado.
 
 ## Puesta en marcha
 
 ```bash
-make build          # backend + web + extensión
+make build-backend  # ERP completo: backend + SPA + migraciones + catálogo
 ./bin/asesoria      # abre http://127.0.0.1:8787
 ```
+
+`bin/asesoria` es un único binario Go: incluye la interfaz Vue compilada y no necesita Node ni la carpeta `web/dist` en tiempo de ejecución. `make build` compila además la extensión (`extension/dist`) por separado; la extensión nunca forma parte del binario.
 
 Para probar con datos de demostración:
 
@@ -133,7 +135,14 @@ make dev-backend    # API en 127.0.0.1:8787, permite el origen de Vite
 make dev-web        # SPA en http://localhost:5173 con proxy /api
 ```
 
-La web compilada que sirve el backend se genera con `make build-web`. Si falta `web/dist`, el backend devuelve un mensaje indicando cómo compilarla.
+El binario sirve primero una carpeta externa si se indica con `-web-dir` (útil para desarrollo o para probar un build concreto). Si no existe `index.html`, usa la SPA embebida. Para generar el binario autónomo:
+
+```bash
+make build-backend
+./bin/asesoria
+```
+
+`make embed-web` copia el resultado de Vite a `backend/internal/webapp/dist`, que es lo que embebe Go. Esa carpeta está ignorada por Git salvo `.keep`, que permite compilar antes de construir la web.
 
 ### Variables y flags
 
@@ -141,7 +150,7 @@ La web compilada que sirve el backend se genera con `make build-web`. Si falta `
 | --- | --- | --- |
 | `-addr` | `ASESORIA_ADDR` | `127.0.0.1:8787` |
 | `-data-dir` | `ASESORIA_DATA_DIR` | `~/.local/share/asesoria` |
-| `-web-dir` | `ASESORIA_WEB_DIR` | `web/dist` |
+| `-web-dir` | `ASESORIA_WEB_DIR` | vacío (usa la SPA embebida; valor opcional para desarrollo) |
 | `-dev` | `ASESORIA_DEV=1` | desactivado |
 | `-demo` | `ASESORIA_DEMO=1` | desactivado |
 
@@ -234,6 +243,7 @@ backend/
   internal/seed/       datos de demostración
   internal/storage/    documentos en disco
   internal/store/      acceso a datos y tokens
+  internal/webapp/     SPA Vue embebida con //go:embed
 web/
   src/pages/           dashboard, calendario, expediente, facturas…
   src/components/      UI reutilizable
@@ -257,7 +267,7 @@ make check    # gofmt, go vet, vue-tsc y tsc
 ## Problemas frecuentes
 
 - **El puerto 8787 está ocupado**: usa `./bin/asesoria -addr 127.0.0.1:8790` y cambia la dirección en la extensión.
-- **“La interfaz web no está compilada”**: ejecuta `make build-web` o arranca el backend desde la raíz del repositorio con `-web-dir web/dist`.
+- **“La interfaz web no está embebida en este binario”**: compila el ERP con `make build-backend`; el binario incorpora la SPA y no depende de `web/dist` en ejecución.
 - **La extensión no conecta**: comprueba que el backend está en marcha, que la dirección coincide y que el código no ha caducado. Genera uno nuevo si es necesario.
 - **El panel no aparece en la sede**: abre el expediente desde el popup de la extensión. El panel solo se monta cuando hay un expediente activo y la extensión está emparejada.
 - **El escaneo no lee PDF escaneados o imágenes**: instala Poppler y Tesseract (ver [Biblioteca documental](#biblioteca-documental)), vuelve a Ajustes y pulsa **Escanear ahora**, o usa **Reprocesar texto** en la revisión del documento.
