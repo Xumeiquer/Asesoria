@@ -1,0 +1,211 @@
+# Asesoría
+
+ERP fiscal local para autónomos y pequeñas sociedades limitadas. Organiza las obligaciones de la AEAT, la TGSS y el Registro Mercantil, genera el calendario de vencimientos, guarda documentos y ayuda a preparar los modelos oficiales. Una extensión de navegador muestra los datos del expediente sobre la sede electrónica y permite copiarlos o descargarlos, pero **nunca firma ni accede al certificado**.
+
+La aplicación está pensada para un único usuario en su propio equipo: el backend escucha solo en `127.0.0.1`, los datos viven en SQLite y no hay telemetría ni servicios externos.
+
+## Estado del proyecto
+
+MVP funcional. Incluye:
+
+- Catálogo declarativo de **38 modelos** (AEAT, TGSS y Registro Mercantil) con periodicidad y reglas de aplicabilidad por perfil fiscal.
+- Generación de calendario por ejercicio, con traslado de vencimientos de fin de semana al lunes.
+- Expediente por obligación: estado, notas, checklist, documentos y justificante.
+- Cálculo automático de **modelo 303 (IVA)** y **modelo 130 (pago fraccionado de IRPF)** a partir de facturas registradas.
+- Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
+- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles y descarga de documentos.
+- Datos de demostración con `-demo`.
+
+Todavía **no** presenta modelos, no custodia certificados y no emite facturas. El resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente; sus casillas no se calculan.
+
+## Arquitectura
+
+```
+┌──────────────────────────────┐        ┌──────────────────────────────┐
+│ Vue 3 + Vite + Pinia         │        │ Extensión Chrome (MV3)       │
+│ SPA servida por el backend   │        │ popup + panel en la sede     │
+└──────────────┬───────────────┘        └──────────────┬───────────────┘
+               │ cookie de sesión HMAC                 │ bearer token revocable
+               ▼                                       ▼
+        ┌─────────────────────────────────────────────────────┐
+        │ Go + chi · API local en 127.0.0.1:8787              │
+        │ catálogo YAML · calendario · cálculo · auth · audit │
+        └──────────────────────────┬──────────────────────────┘
+                                   ▼
+                    SQLite + documentos en disco
+```
+
+- **Backend** (`backend/`): Go, chi, `modernc.org/sqlite` (sin CGO), migraciones embebidas.
+- **Web** (`web/`): Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS 4, `lucide-vue-next`.
+- **Extensión** (`extension/`): Manifest V3, TypeScript y esbuild. El popup y la página de opciones usan un diseño propio; el panel se inyecta en un shadow DOM para no interferir con la sede.
+- **Catálogo** (`backend/internal/catalog/data/models.yaml`): datos versionados por ejercicio, separados de la lógica de cálculo.
+- **Importes**: siempre en céntimos. Los tipos se guardan en puntos básicos (`2100` = 21 %).
+
+## Requisitos
+
+- Go **1.26 o superior**.
+- Node.js **20 o superior** (probado con Node 24) y npm.
+- Chrome, Edge o Brave basado en Chromium para la extensión. Firefox no está validado.
+
+## Puesta en marcha
+
+```bash
+make build          # backend + web + extensión
+./bin/asesoria      # abre http://127.0.0.1:8787
+```
+
+Para probar con datos de demostración:
+
+```bash
+./bin/asesoria -demo
+```
+
+El primer arranque crea la base de datos y aplica las migraciones. Los datos se guardan por defecto en:
+
+```text
+~/.local/share/asesoria/
+├── asesoria.db
+└── storage/          # documentos content-addressed
+```
+
+Puedes cambiarlo con `-data-dir` o `ASESORIA_DATA_DIR`:
+
+```bash
+ASESORIA_DATA_DIR=/ruta/a/mis-datos ./bin/asesoria
+```
+
+### Desarrollo
+
+En dos terminales:
+
+```bash
+make dev-backend    # API en 127.0.0.1:8787, permite el origen de Vite
+make dev-web        # SPA en http://localhost:5173 con proxy /api
+```
+
+La web compilada que sirve el backend se genera con `make build-web`. Si falta `web/dist`, el backend devuelve un mensaje indicando cómo compilarla.
+
+### Variables y flags
+
+| Flag | Variable | Por defecto |
+| --- | --- | --- |
+| `-addr` | `ASESORIA_ADDR` | `127.0.0.1:8787` |
+| `-data-dir` | `ASESORIA_DATA_DIR` | `~/.local/share/asesoria` |
+| `-web-dir` | `ASESORIA_WEB_DIR` | `web/dist` |
+| `-dev` | `ASESORIA_DEV=1` | desactivado |
+| `-demo` | `ASESORIA_DEMO=1` | desactivado |
+
+No expongas el servidor en una interfaz pública. El modelo de seguridad asume loopback y un único usuario.
+
+## Extensión
+
+```bash
+cd extension
+npm ci
+npm run build       # genera extension/dist
+```
+
+1. Abre `chrome://extensions`.
+2. Activa el **modo de desarrollador**.
+3. Pulsa **Cargar descomprimida** y selecciona `extension/dist`.
+4. En el ERP entra en **Ajustes → Conectar la extensión** y genera un código.
+5. Abre el popup de la extensión, pega el código y pulsa **Conectar**.
+
+El código caduca en 10 minutos y solo puede usarse una vez. El token resultante se guarda en `chrome.storage.local`, se guarda hasheado en el servidor y puede revocarse desde **Ajustes → Accesos de extensiones**. Los tokens de extensión son **solo de lectura**: no pueden crear, modificar ni borrar datos del ERP.
+
+### Qué hace el panel de la sede
+
+- Detecta el expediente abierto desde el popup y muestra modelo, periodo, vencimiento, estado, casillas calculadas, avisos y documentos.
+- Permite copiar una casilla, copiar todas o descargar documentos.
+- Abre el ERP o la sede oficial.
+- Se cierra con la X y limpia el expediente activo.
+
+### Adaptadores de formulario
+
+`extension/src/adapters/index.ts` define un motor declarativo (`wait`, `set`, `select`, `click`, `pause`) y **no incluye ningún adaptador verificado**. El panel funciona siempre como asistente manual. Para habilitar relleno automático:
+
+1. Verifica los selectores contra el formulario oficial del ejercicio concreto.
+2. Añade el adaptador con `verified: true` solo después de probarlo.
+3. Termina siempre con un paso `pause` para que el usuario revise y firme.
+
+La extensión no rellena, envía ni firma sin intervención del usuario, y nunca solicita ni lee el certificado.
+
+## Catálogo y calendario
+
+El catálogo está en `backend/internal/catalog/data/models.yaml`. Cada modelo declara:
+
+- `code`, `name`, `entity`, `category`, `periodicity`, `description`, `url`.
+- `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres o actividad económica.
+- `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento y offsets de periodo.
+- `documents`: checklist documental.
+- `auto`: si se genera automáticamente en el calendario.
+
+Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 aparece en el calendario de 2027. Los sábados y domingos se trasladan al lunes.
+
+### Cálculo
+
+Solo 303 y 130 tienen calculadora:
+
+- **303**: casillas 01–28 (bases, tipos, cuotas devengadas/deducibles y resultado del régimen general).
+- **130**: casillas 01–07 (ingresos, gastos, rendimiento neto, 20 %, retenciones y pagos previos).
+
+Los cálculos usan las facturas del periodo y contribuyente. **Las correspondencias de casillas están pendientes de validar contra el formulario oficial de 2026**; la interfaz muestra este aviso. Los regímenes especiales de IVA no están cubiertos.
+
+## Seguridad y privacidad
+
+- El servidor solo acepta `Host` de loopback y orígenes de extensión/localhost.
+- La SPA se autentica con una cookie `HttpOnly`, `SameSite=Strict`, firmada con HMAC.
+- El emparejamiento usa códigos de 6 dígitos de un solo uso, con caducidad y almacenamiento transaccional.
+- Los tokens de extensión se guardan hasheados (SHA-256), son revocables y solo permiten `GET`.
+- Los documentos se guardan en disco y se referencian por SHA-256; no se sirven desde rutas arbitrarias.
+- No hay acceso al certificado ni a la clave privada: la firma ocurre siempre en el navegador.
+- No hay telemetría, analítica ni llamadas a servicios de terceros.
+
+**Límites del modelo:** es una aplicación local de un solo usuario. No hay cifrado en reposo de SQLite ni de los documentos; protege la cuenta del sistema operativo y la carpeta de datos. Cualquier proceso local con acceso a tu usuario podría leer los datos. Para copias de seguridad, detén la aplicación y copia el directorio de datos completo.
+
+## Aviso legal
+
+Esta herramienta ayuda a organizar, calcular y documentar, pero **no sustituye el asesoramiento profesional** ni garantiza la corrección de una autoliquidación. Verifica siempre las casillas, los plazos y la normativa aplicable antes de firmar. La presentación y la firma son responsabilidad del usuario y se realizan en la sede oficial con su certificado.
+
+Si en el futuro la aplicación emite facturas por cuenta del contribuyente, deberá cumplir Verifactu y la normativa de facturación electrónica aplicable. En esta versión solo se registran e importan facturas ya emitidas.
+
+## Estructura
+
+```text
+backend/
+  cmd/asesoria/        arranque y flags
+  internal/api/        rutas HTTP, auth, CORS, SPA
+  internal/calendar/   generación de vencimientos
+  internal/calc/       calculadoras 303 y 130
+  internal/catalog/    carga del YAML embebido
+  internal/db/         SQLite y migraciones
+  internal/seed/       datos de demostración
+  internal/storage/    documentos en disco
+  internal/store/      acceso a datos y tokens
+web/
+  src/pages/           dashboard, calendario, expediente, facturas…
+  src/components/      UI reutilizable
+  src/api.ts           cliente tipado y helpers de importes/fechas
+extension/
+  src/popup.ts         emparejamiento y listado
+  src/options.ts       ajustes y estado de conexión
+  src/content.ts       panel sobre la sede
+  src/adapters/        motor declarativo (sin adaptadores verificados)
+  src/background.ts    router de mensajes y descargas
+Makefile
+```
+
+## Comprobaciones
+
+```bash
+make test     # Go tests + build web + typecheck extensión
+make check    # gofmt, go vet, vue-tsc y tsc
+```
+
+## Problemas frecuentes
+
+- **El puerto 8787 está ocupado**: usa `./bin/asesoria -addr 127.0.0.1:8790` y cambia la dirección en la extensión.
+- **“La interfaz web no está compilada”**: ejecuta `make build-web` o arranca el backend desde la raíz del repositorio con `-web-dir web/dist`.
+- **La extensión no conecta**: comprueba que el backend está en marcha, que la dirección coincide y que el código no ha caducado. Genera uno nuevo si es necesario.
+- **El panel no aparece en la sede**: abre el expediente desde el popup de la extensión. El panel solo se monta cuando hay un expediente activo y la extensión está emparejada.
+- **Fechas o importes raros**: revisa la zona horaria del equipo y que los importes se introduzcan en formato español (`1.234,56`) o con punto decimal (`1234.56`).

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Opciones · Asesoría</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="options">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3 4 7v5c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V7l-8-4Z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </span>
+          <div class="brand-text">
+            <strong>Asesoría</strong>
+            <span>Asistente fiscal local</span>
+          </div>
+        </div>
+        <button id="open-erp" class="btn btn-ghost" type="button">Abrir el ERP</button>
+      </header>
+
+      <main class="options-main">
+        <div class="options-head">
+          <h1>Ajustes de la extensión</h1>
+          <p>
+            La extensión se conecta únicamente con el ERP que se ejecuta en tu equipo. Aquí puedes revisar la conexión,
+            emparejar este navegador o revocar su acceso.
+          </p>
+        </div>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h2>Estado de la conexión</h2>
+              <p>El token se guarda solo en este navegador y puede revocarse desde el ERP.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <dl class="status-grid">
+              <div class="status-item">
+                <dt>Estado</dt>
+                <dd id="status-state">Comprobando…</dd>
+              </div>
+              <div class="status-item">
+                <dt>Dirección del ERP</dt>
+                <dd id="status-url" class="mono">—</dd>
+              </div>
+              <div class="status-item">
+                <dt>Identificador</dt>
+                <dd id="status-name">—</dd>
+              </div>
+              <div class="status-item">
+                <dt>Versión</dt>
+                <dd id="status-version">—</dd>
+              </div>
+            </dl>
+            <div class="actions">
+              <button id="test" class="btn btn-ghost" type="button">Comprobar conexión</button>
+              <button id="unpair" class="btn btn-danger hidden" type="button">Desconectar</button>
+            </div>
+            <p id="test-result" class="alert hidden" role="status"></p>
+          </div>
+        </section>
+
+        <section id="pair-card" class="card hidden">
+          <div class="card-head">
+            <div>
+              <h2>Emparejar este navegador</h2>
+              <p>Introduce el código de un solo uso que aparece en el ERP, en Ajustes → Conectar la extensión.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="pair-form" novalidate>
+              <div class="form-grid two">
+                <label class="field full">
+                  <span class="label">Dirección del ERP</span>
+                  <input id="api-url" class="input" type="url" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8787" required />
+                </label>
+                <label class="field">
+                  <span class="label">Código de emparejamiento</span>
+                  <input
+                    id="code"
+                    class="input code-input"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    autocomplete="one-time-code"
+                    placeholder="000000"
+                    required
+                  />
+                </label>
+                <label class="field">
+                  <span class="label">Nombre de este navegador</span>
+                  <input id="pair-name" class="input" type="text" maxlength="60" required />
+                </label>
+              </div>
+              <p id="pair-error" class="alert alert-error hidden" role="alert"></p>
+              <div class="form-actions">
+                <button id="pair-submit" class="btn btn-primary" type="submit">Conectar con el ERP</button>
+              </div>
+              <p class="options-note">
+                El código caduca a los 10 minutos y solo puede usarse una vez. Si el ERP no está en la dirección
+                habitual, cámbiala antes de conectar.
+              </p>
+            </form>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h2>Privacidad y límites</h2>
+              <p>Qué hace y qué no hace esta extensión.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul class="security-list">
+              <li>
+                <span class="check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                </span>
+                <span>Lee expedientes, casillas calculadas y documentos del ERP local para mostrarlos junto a la sede electrónica.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                </span>
+                <span>Puede copiar los datos al portapapeles o descargar un documento para que los uses en el formulario oficial.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                </span>
+                <span>No accede nunca a tu certificado ni a tu clave privada: la firma se realiza siempre en el navegador.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                </span>
+                <span>No envía datos a servidores externos. Solo habla con la dirección del ERP que configures en tu equipo.</span>
+              </li>
+            </ul>
+            <p class="options-note">
+              Esta herramienta organiza y calcula, pero no sustituye el asesoramiento profesional. Revisa siempre las
+              casillas y los plazos antes de firmar.
+            </p>
+          </div>
+        </section>
+
+        <footer class="options-footer">
+          <span>Asesoría · extensión local</span>
+          <span id="footer-version"></span>
+        </footer>
+      </main>
+    </div>
+    <script src="options.js"></script>
+  </body>
+</html>

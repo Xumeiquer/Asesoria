@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asesoría</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="popup">
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3 4 7v5c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V7l-8-4Z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </span>
+          <div class="brand-text">
+            <strong>Asesoría</strong>
+            <span>Asistente fiscal local</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button id="open-erp" class="icon-btn" type="button" title="Abrir el ERP" aria-label="Abrir el ERP">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+          </button>
+          <button id="open-options" class="icon-btn" type="button" title="Opciones" aria-label="Opciones">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section id="unpaired" class="hidden">
+          <div class="intro">
+            <h1>Conecta con tu ERP</h1>
+            <p>La extensión lee expedientes y documentos del ERP que se ejecuta en tu equipo. No envía datos a ningún servidor externo.</p>
+          </div>
+
+          <form id="pair-form" class="stack" novalidate>
+            <label class="field">
+              <span class="label">Dirección del ERP</span>
+              <input id="api-url" class="input" type="url" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8787" required />
+            </label>
+            <label class="field">
+              <span class="label">Código de emparejamiento</span>
+              <input
+                id="code"
+                class="input code-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                required
+              />
+            </label>
+            <label class="field">
+              <span class="label">Nombre de este navegador</span>
+              <input id="pair-name" class="input" type="text" maxlength="60" required />
+            </label>
+            <p id="pair-error" class="alert alert-error hidden" role="alert"></p>
+            <button id="pair-submit" class="btn btn-primary" type="submit">Conectar con el ERP</button>
+          </form>
+
+          <p class="hint">
+            Genera el código en <strong>Ajustes → Conectar la extensión</strong>. Caduca en 10 minutos y solo puede usarse una vez.
+          </p>
+        </section>
+
+        <section id="paired" class="hidden">
+          <div class="connection">
+            <div class="connection-main">
+              <span class="live-dot" aria-hidden="true"></span>
+              <div>
+                <strong id="token-name">Extensión conectada</strong>
+                <span id="connected-url" class="connection-url"></span>
+              </div>
+            </div>
+            <button id="unpair" class="link-btn" type="button">Desconectar</button>
+          </div>
+
+          <div class="list-head">
+            <div>
+              <h2>Expedientes abiertos</h2>
+              <p id="list-subtitle" class="list-subtitle">Cargando…</p>
+            </div>
+            <button id="refresh" class="icon-btn" type="button" title="Actualizar" aria-label="Actualizar expedientes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+            <input id="search" class="input search" type="search" placeholder="Buscar por modelo, periodo o NIF" autocomplete="off" />
+          </div>
+
+          <p id="list-error" class="alert alert-error hidden" role="alert"></p>
+
+          <div id="filings" class="filings" role="list"></div>
+
+          <div id="empty" class="empty hidden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+              <path d="M14 2v6h6" />
+              <path d="M9 15h6" />
+            </svg>
+            <p id="empty-text">No hay expedientes pendientes.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span id="footer-left">Solo en tu equipo</span>
+        <span id="footer-version"></span>
+      </footer>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

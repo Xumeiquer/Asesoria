@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Asesoría · Asistente fiscal",
+  "version": "0.1.0",
+  "description": "Conecta el ERP fiscal local con la sede electrónica y muestra los datos del expediente mientras lo presentas.",
+  "permissions": ["storage", "tabs", "clipboardWrite"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://sede.agenciatributaria.gob.es/*",
+    "https://*.seg-social.gob.es/*",
+    "https://*.registradores.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Asesoría"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://sede.agenciatributaria.gob.es/*",
+        "https://*.seg-social.gob.es/*",
+        "https://*.registradores.org/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

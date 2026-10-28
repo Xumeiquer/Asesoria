@@ -1,0 +1,716 @@
+version: "2026.1"
+# Catálogo de obligaciones. Es data, no código: se versiona por ejercicio.
+# auto: true  -> se genera automáticamente en el calendario del contribuyente.
+# auto: false -> aparece en el catálogo y puede añadirse a mano (trámites puntuales).
+models:
+  - code: "036"
+    name: "Alta, modificación y baja censal"
+    entity: AEAT
+    category: "Censal"
+    periodicity: "Puntual"
+    description: "Comunicación de alta, cambios o baja en el Censo de Empresarios, Profesionales y Retenedores."
+    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    auto: false
+    documents:
+      - "DNI/NIE del titular o escritura de constitución"
+      - "Escritura de apoderamiento, si aplica"
+      - "Modelo 036/037 firmado"
+    notes: "Se presenta antes de iniciar la actividad o en el plazo de un mes desde el cambio."
+
+  - code: "037"
+    name: "Declaración censal simplificada"
+    entity: AEAT
+    category: "Censal"
+    periodicity: "Puntual"
+    description: "Versión simplificada del modelo 036 para autónomos con actividades y regímenes sencillos."
+    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    auto: false
+    applies:
+      legal_forms: ["autonomo"]
+    documents:
+      - "DNI/NIE"
+      - "Certificado de empadronamiento, si aplica"
+    notes: "No admite todos los supuestos del 036. Verifica la vigencia del modelo antes de presentarlo."
+
+  - code: "303"
+    name: "Autoliquidación de IVA"
+    entity: AEAT
+    category: "IVA"
+    periodicity: "Trimestral"
+    description: "Liquidación del IVA devengado y deducible del periodo."
+    url: "https://sede.agenciatributaria.gob.es/Sede/iva/presentar-declaracion-iva-modelo-303.html"
+    auto: true
+    applies:
+      economic_activity: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Facturas emitidas del periodo"
+      - "Facturas recibidas y gastos deducibles"
+      - "Justificantes de importación y exportación"
+      - "Liquidaciones de IVA de otros Estados miembros"
+    notes: "Mensual para grandes empresas, grupos de IVA, REDEME y SII. Plazo: 1-20 del mes siguiente."
+
+  - code: "390"
+    name: "Resumen anual de IVA"
+    entity: AEAT
+    category: "IVA"
+    periodicity: "Anual"
+    description: "Resumen anual de las operaciones de IVA declaradas en los modelos 303 del ejercicio."
+    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    auto: true
+    applies:
+      economic_activity: true
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Resúmenes trimestrales de IVA"
+      - "Libro registro de facturas emitidas y recibidas"
+    notes: "Plazo: 1-31 de enero. Algunos sujetos están exonerados; revisa el supuesto."
+
+  - code: "130"
+    name: "Pago fraccionado de IRPF (estimación directa)"
+    entity: AEAT
+    category: "IRPF"
+    periodicity: "Trimestral"
+    description: "Pago a cuenta del IRPF para autónomos en estimación directa."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      legal_forms: ["autonomo"]
+      irpf_methods: ["directa"]
+      economic_activity: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Facturas emitidas del periodo"
+      - "Facturas recibidas y gastos deducibles"
+      - "Nóminas y seguros sociales"
+      - "Retenciones soportadas o practicadas"
+    notes: "20% del rendimiento neto acumulado, menos retenciones y pagos previos."
+
+  - code: "131"
+    name: "Pago fraccionado de IRPF (módulos)"
+    entity: AEAT
+    category: "IRPF"
+    periodicity: "Trimestral"
+    description: "Pago a cuenta del IRPF para autónomos en estimación objetiva."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      legal_forms: ["autonomo"]
+      irpf_methods: ["modulos"]
+      economic_activity: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Datos de módulos del periodo"
+      - "Facturas emitidas y recibidas"
+    notes: "Sujeto a los módulos y coeficientes del ejercicio."
+
+  - code: "111"
+    name: "Retenciones e ingresos a cuenta del trabajo y profesionales"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Trimestral"
+    description: "Ingreso de retenciones sobre rendimientos del trabajo y de actividades profesionales."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      has_employees: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Nóminas del periodo"
+      - "Facturas de profesionales con retención"
+      - "Recibos de retención"
+    notes: "Mensual para grandes empresas y obligados al SII."
+
+  - code: "190"
+    name: "Resumen anual de retenciones del trabajo y profesionales"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Anual"
+    description: "Resumen anual de las retenciones declaradas en el modelo 111."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      has_employees: true
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Modelos 111 del ejercicio"
+      - "Certificados de retención emitidos"
+      - "Nóminas y datos de perceptores"
+    notes: "Plazo: 1-31 de enero."
+
+  - code: "115"
+    name: "Retenciones por arrendamiento de inmuebles"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Trimestral"
+    description: "Ingreso de retenciones sobre alquileres de locales o viviendas."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      has_rentals: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Contratos de arrendamiento"
+      - "Facturas o recibos de alquiler"
+      - "Recibos de retención"
+    notes: "Mensual para grandes empresas y obligados al SII."
+
+  - code: "180"
+    name: "Resumen anual de retenciones por arrendamiento"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Anual"
+    description: "Resumen anual de las retenciones declaradas en el modelo 115."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      has_rentals: true
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Modelos 115 del ejercicio"
+      - "Contratos y datos de arrendadores"
+    notes: "Plazo: 1-31 de enero."
+
+  - code: "123"
+    name: "Retenciones sobre rendimientos del capital mobiliario"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Trimestral"
+    description: "Retenciones sobre intereses, dividendos y otros rendimientos del capital."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: false
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Certificados de intereses y dividendos"
+      - "Recibos de retención"
+    notes: "Solo si la sociedad o el autónomo practica este tipo de retenciones."
+
+  - code: "193"
+    name: "Resumen anual de retenciones del capital mobiliario"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Anual"
+    description: "Resumen anual de las retenciones declaradas en el modelo 123."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Modelos 123 del ejercicio"
+      - "Certificados emitidos a perceptores"
+
+  - code: "216"
+    name: "Retenciones de no residentes"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Trimestral"
+    description: "Retenciones sobre rentas abonadas a contribuyentes no residentes."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Contratos con no residentes"
+      - "Certificados de residencia fiscal"
+      - "Facturas y recibos"
+
+  - code: "296"
+    name: "Resumen anual de retenciones de no residentes"
+    entity: AEAT
+    category: "Retenciones"
+    periodicity: "Anual"
+    description: "Resumen anual de las retenciones declaradas en el modelo 216."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Modelos 216 del ejercicio"
+      - "Certificados de residencia"
+
+  - code: "349"
+    name: "Declaración recapitulativa de operaciones intracomunitarias"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Trimestral"
+    description: "Declaración de entregas y adquisiciones intracomunitarias de bienes y servicios."
+    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    auto: true
+    applies:
+      economic_activity: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_day: 20
+    documents:
+      - "Facturas intracomunitarias"
+      - "NIF-IVA de los clientes/proveedores"
+      - "Consulta VIES"
+    notes: "Mensual si se superan los umbrales o se está en SII."
+
+  - code: "347"
+    name: "Operaciones con terceras personas"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Anual"
+    description: "Declaración anual de operaciones superiores a 3.005,06 € con terceros."
+    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    auto: true
+    applies:
+      economic_activity: true
+    schedule:
+      type: annual
+      due_months: [2]
+      due_day: 28
+      period_year_offset: -1
+    documents:
+      - "Facturas emitidas y recibidas del ejercicio"
+      - "Datos de clientes y proveedores"
+    notes: "Plazo: 1-28 de febrero (29 en año bisiesto)."
+
+  - code: "200"
+    name: "Impuesto sobre Sociedades"
+    entity: AEAT
+    category: "Sociedades"
+    periodicity: "Anual"
+    description: "Autoliquidación anual del Impuesto sobre Sociedades."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: true
+    applies:
+      legal_forms: ["sl"]
+    schedule:
+      type: annual
+      due_months: [7]
+      due_day: 25
+      period_year_offset: -1
+    documents:
+      - "Cuentas anuales y balance"
+      - "Cuenta de pérdidas y ganancias"
+      - "Ajustes fiscales y amortizaciones"
+      - "Pagos fraccionados (modelo 202)"
+    notes: "Plazo: 25 días naturales tras los 6 meses del cierre. Si el cierre no es 31/12, ajusta la fecha."
+
+  - code: "202"
+    name: "Pagos fraccionados del Impuesto sobre Sociedades"
+    entity: AEAT
+    category: "Sociedades"
+    periodicity: "Trimestral"
+    description: "Pagos a cuenta del Impuesto sobre Sociedades."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: true
+    applies:
+      legal_forms: ["sl"]
+    schedule:
+      type: custom
+      dues:
+        - month: 4
+          day: 20
+          period_start: "01-01"
+          period_end: "03-31"
+          period_year_offset: 0
+        - month: 10
+          day: 20
+          period_start: "01-01"
+          period_end: "09-30"
+          period_year_offset: 0
+        - month: 12
+          day: 20
+          period_start: "01-01"
+          period_end: "11-30"
+          period_year_offset: 0
+    documents:
+      - "Resultado contable del periodo"
+      - "Ajustes fiscales"
+      - "Deducciones y bonificaciones"
+    notes: "Tres pagos: abril, octubre y diciembre. Revisa el régimen de pago fraccionado."
+
+  - code: "100"
+    name: "Declaración de la Renta (IRPF)"
+    entity: AEAT
+    category: "IRPF"
+    periodicity: "Anual"
+    description: "Autoliquidación anual del IRPF."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: true
+    applies:
+      legal_forms: ["autonomo"]
+    schedule:
+      type: annual
+      due_months: [6]
+      due_day: 30
+      period_year_offset: -1
+    documents:
+      - "Certificados de retenciones"
+      - "Facturas y gastos del ejercicio"
+      - "Datos de seguros, vivienda y familia"
+      - "Pagos fraccionados (130/131)"
+    notes: "Plazo: 1 de abril a 30 de junio."
+
+  - code: "714"
+    name: "Impuesto sobre el Patrimonio"
+    entity: AEAT
+    category: "Patrimonio"
+    periodicity: "Anual"
+    description: "Declaración anual del Impuesto sobre el Patrimonio cuando se supera el mínimo exento."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [6]
+      due_day: 30
+      period_year_offset: -1
+    documents:
+      - "Inventario de bienes y derechos"
+      - "Deudas y cargas"
+    notes: "Plazo: 1 de abril a 30 de junio."
+
+  - code: "720"
+    name: "Bienes y derechos en el extranjero"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Anual"
+    description: "Declaración informativa de bienes y derechos situados en el extranjero."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [3]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Extractos bancarios extranjeros"
+      - "Escrituras y títulos de propiedad"
+      - "Valoraciones"
+    notes: "Plazo: 1 de enero a 31 de marzo."
+
+  - code: "721"
+    name: "Criptomonedas en el extranjero"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Anual"
+    description: "Declaración informativa de monedas virtuales custodiadas en el extranjero."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [3]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Extractos de exchanges"
+      - "Direcciones y saldos"
+    notes: "Plazo: 1 de enero a 31 de marzo."
+
+  - code: "840"
+    name: "Alta en el Impuesto sobre Actividades Económicas"
+    entity: AEAT
+    category: "Censal"
+    periodicity: "Puntual"
+    description: "Alta, variación o baja en la matrícula del IAE."
+    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    auto: false
+    applies:
+      economic_activity: true
+    documents:
+      - "Modelo 840"
+      - "Datos de la actividad y del local"
+    notes: "No aplica a autónomos exentos por facturación o inicio de actividad en los términos legales."
+
+  - code: "184"
+    name: "Declaración informativa de entidades en régimen de atribución de rentas"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Anual"
+    description: "Resumen de rentas atribuidas a socios, herederos o comuneros."
+    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [1]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Contrato de constitución"
+      - "Rentas y gastos de la entidad"
+      - "Datos de los socios/comuneros"
+
+  - code: "232"
+    name: "Operaciones vinculadas"
+    entity: AEAT
+    category: "Informativas"
+    periodicity: "Anual"
+    description: "Declaración informativa de operaciones con personas o entidades vinculadas."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    schedule:
+      type: annual
+      due_months: [11]
+      due_day: 30
+      period_year_offset: -1
+    documents:
+      - "Detalle de operaciones vinculadas"
+      - "Métodos de valoración"
+      - "Documentación del grupo"
+
+  - code: "600"
+    name: "Impuesto sobre Transmisiones Patrimoniales y AJD"
+    entity: AEAT
+    category: "Otros tributos"
+    periodicity: "Puntual"
+    description: "Autoliquidación de transmisiones patrimoniales onerosas y actos jurídicos documentados."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    documents:
+      - "Escritura o contrato"
+      - "Justificante del pago"
+    notes: "Gestión transferida a las comunidades autónomas; el modelo y plazo varían."
+
+  - code: "650"
+    name: "Impuesto sobre Sucesiones"
+    entity: AEAT
+    category: "Otros tributos"
+    periodicity: "Puntual"
+    description: "Autoliquidación del Impuesto sobre Sucesiones y Donaciones."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    documents:
+      - "Certificado de defunción"
+      - "Testamento y escrituras"
+      - "Inventario de bienes"
+    notes: "Plazo de 6 meses desde el fallecimiento, prorrogable. Gestión autonómica."
+
+  - code: "651"
+    name: "Impuesto sobre Donaciones"
+    entity: AEAT
+    category: "Otros tributos"
+    periodicity: "Puntual"
+    description: "Autoliquidación del Impuesto sobre Donaciones."
+    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    auto: false
+    documents:
+      - "Escritura de donación"
+      - "Valoración de los bienes"
+    notes: "Plazo de 30 días hábiles. Gestión autonómica."
+
+  - code: "RETA-ALTA"
+    name: "Alta, baja o cambio de datos en RETA"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Puntual"
+    description: "Alta o variaciones del trabajador autónomo en el Régimen Especial de Trabajadores Autónomos."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: false
+    applies:
+      legal_forms: ["autonomo"]
+    documents:
+      - "DNI/NIE"
+      - "Modelo 036/037 o alta censal"
+      - "Datos bancarios"
+    notes: "Alta antes de iniciar la actividad; baja en los días siguientes al cese."
+
+  - code: "CCC-RNT"
+    name: "Alta de empresa y cuenta de cotización (CCC/RNT)"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Puntual"
+    description: "Solicitud de cuenta de cotización y número de la Seguridad Social de la empresa."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: false
+    applies:
+      has_employees: true
+    documents:
+      - "Escritura de constitución"
+      - "NIF de la empresa"
+      - "Datos del representante legal"
+      - "Alta de los trabajadores"
+    notes: "Previo al alta de los trabajadores."
+
+  - code: "TC1"
+    name: "Relación nominal de trabajadores (RLC/TC1)"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Mensual"
+    description: "Liquidación mensual de cuotas de la Seguridad Social y conceptos de recaudación conjunta."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: true
+    applies:
+      has_employees: true
+    schedule:
+      type: monthly
+      due_day: 0
+    documents:
+      - "Nóminas del mes"
+      - "Bases de cotización"
+      - "Partes de incapacidad temporal"
+      - "Altas y bajas de trabajadores"
+    notes: "Plazo: último día del mes siguiente. Sistema RED / Import@ss."
+
+  - code: "TC2"
+    name: "Relación nominal de trabajadores (IDC/TC2)"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Mensual"
+    description: "Detalle individualizado de bases y contingencias que acompaña al TC1."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: true
+    applies:
+      has_employees: true
+    schedule:
+      type: monthly
+      due_day: 0
+    documents:
+      - "Nóminas y bases de cotización"
+      - "Incidencias del mes"
+    notes: "Se presenta junto con el TC1 a través del Sistema RED."
+
+  - code: "RETA-COT"
+    name: "Cotización mensual del autónomo (RETA)"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Mensual"
+    description: "Cuota mensual del autónomo según los rendimientos netos."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: true
+    applies:
+      legal_forms: ["autonomo"]
+    schedule:
+      type: monthly
+      due_day: 0
+      period_offset_months: 0
+    documents:
+      - "Rendimientos netos del ejercicio"
+      - "Datos de la base de cotización"
+    notes: "Domiciliación el último día del mes. Regularización anual según rendimientos."
+
+  - code: "IT"
+    name: "Incapacidad temporal y maternidad/paternidad"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Puntual"
+    description: "Comunicación de partes de baja, confirmación y alta."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: false
+    applies:
+      has_employees: true
+    documents:
+      - "Parte de baja"
+      - "Partes de confirmación"
+      - "Parte de alta"
+    notes: "Los partes se comunican en 3 días hábiles."
+
+  - code: "CERT-EMPRESA"
+    name: "Certificado de empresa"
+    entity: TGSS
+    category: "Cotización"
+    periodicity: "Puntual"
+    description: "Certificado de datos de cotización para prestaciones."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    auto: false
+    applies:
+      has_employees: true
+    documents:
+      - "Datos del trabajador"
+      - "Historial de cotización"
+
+  - code: "RM-CUENTAS"
+    name: "Formulación de cuentas anuales"
+    entity: Registro Mercantil
+    category: "Contabilidad"
+    periodicity: "Anual"
+    description: "Formulación de las cuentas anuales por el órgano de administración."
+    url: "https://www.registradores.org/"
+    auto: true
+    applies:
+      legal_forms: ["sl"]
+    schedule:
+      type: annual
+      due_months: [3]
+      due_day: 31
+      period_year_offset: -1
+    documents:
+      - "Balance"
+      - "Cuenta de pérdidas y ganancias"
+      - "Memoria"
+      - "Estado de cambios en el patrimonio neto"
+    notes: "Dentro de los 3 meses siguientes al cierre del ejercicio."
+
+  - code: "RM-LEGALIZACION"
+    name: "Legalización de libros contables"
+    entity: Registro Mercantil
+    category: "Contabilidad"
+    periodicity: "Anual"
+    description: "Legalización telemática de los libros de contabilidad."
+    url: "https://www.registradores.org/"
+    auto: true
+    applies:
+      legal_forms: ["sl"]
+    schedule:
+      type: annual
+      due_months: [4]
+      due_day: 30
+      period_year_offset: -1
+    documents:
+      - "Libro diario"
+      - "Libro de inventarios y cuentas anuales"
+      - "Libro de actas"
+    notes: "Dentro de los 4 meses siguientes al cierre del ejercicio."
+
+  - code: "RM-DEPOSITO"
+    name: "Depósito de cuentas anuales"
+    entity: Registro Mercantil
+    category: "Contabilidad"
+    periodicity: "Anual"
+    description: "Presentación y depósito de las cuentas anuales aprobadas."
+    url: "https://www.registradores.org/"
+    auto: true
+    applies:
+      legal_forms: ["sl"]
+    schedule:
+      type: annual
+      due_months: [7]
+      due_day: 30
+      period_year_offset: -1
+    documents:
+      - "Cuentas anuales aprobadas"
+      - "Certificado del acuerdo de aprobación"
+      - "Informe de gestión, si aplica"
+      - "Informe del auditor, si aplica"
+    notes: "Dentro del mes siguiente a la aprobación y, como máximo, el 30 de julio."

@@ -1,0 +1,25 @@
+# Build output
+/bin/
+/web/dist/
+/extension/dist/
+
+# Dependencies
+node_modules/
+
+# Local data and databases
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment and editor files
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+
+# Test and tooling artifacts
+.playwright-mcp/
+/coverage/
+*.log
