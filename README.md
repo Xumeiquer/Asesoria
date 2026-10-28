@@ -13,6 +13,7 @@ MVP funcional. Incluye:
 - Expediente por obligación: estado, notas, checklist, documentos y justificante.
 - Cálculo automático de **modelo 303 (IVA)** y **modelo 130 (pago fraccionado de IRPF)** a partir de facturas registradas.
 - Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
+- Biblioteca documental gestionada en una carpeta del equipo, con árbol por contribuyente/año/trimestre/tipo, escaneo incremental, extracción de texto y OCR local opcional.
 - Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles y descarga de documentos.
 - Datos de demostración con `-demo`.
 
@@ -73,6 +74,55 @@ Puedes cambiarlo con `-data-dir` o `ASESORIA_DATA_DIR`:
 ```bash
 ASESORIA_DATA_DIR=/ruta/a/mis-datos ./bin/asesoria
 ```
+
+### Biblioteca documental
+
+En **Ajustes → Biblioteca documental** puedes elegir una carpeta del equipo. La aplicación crea y mantiene este árbol para cada contribuyente:
+
+```text
+<raíz>/<Nombre (NIF)>/
+  2025/
+    1T/
+      Facturas emitidas/
+      Facturas recibidas/
+      Facturas/
+      Nóminas/
+      Justificantes/
+      Modelos/
+      Recibos/
+      Contratos/
+      Seguros/
+      Banco/
+      Otros/
+    2T/ … 4T/
+    Anual/
+    Sin periodo/
+  2026/ … 2027/
+  Sin clasificar/
+```
+
+Se generan los años anterior, actual y siguiente. Al guardar la carpeta, al crear o editar un contribuyente y al escanear, el árbol se vuelve a comprobar; es idempotente y no borra nada. Si un contribuyente se renombra, se reutiliza la carpeta existente que termina en `(NIF)` para no separar sus documentos. Los documentos que no se pueden asignar a ningún contribuyente se archivan en `<raíz>/Sin clasificar/<año>/<periodo>/<tipo>` hasta que se revisan.
+
+La importación es **manual**: pulsa **Escanear biblioteca** en Documentos o Ajustes. El escaneo:
+
+- Recorre la raíz, importa PDF, JPG/PNG/TIFF/WebP/BMP, TXT/MD/CSV, DOCX, XLSX, HTML/XML/JSON y copia cada original dentro del árbol. Los ficheros de origen **no se mueven ni se borran**.
+- Deduplica por SHA-256, salta ficheros ya procesados (ruta + fecha + tamaño) y limita cada pasada a 1000 ficheros.
+- Clasifica por la carpeta, el NIF y el contenido; lo que no puede confirmar queda en la cola **por revisar** de Documentos. Nunca marca un modelo como presentado ni crea facturas automáticamente.
+- Extrae texto de PDF con capa de texto, TXT/CSV/MD, DOCX y XLSX. Para PDF escaneados e imágenes intenta OCR local con Tesseract.
+
+No se usa OCR en la nube: todo ocurre en el equipo. Para habilitar el texto de documentos escaneados instala las herramientas locales:
+
+```bash
+# Debian/Ubuntu
+sudo apt install poppler-utils tesseract-ocr tesseract-ocr-spa
+
+# macOS (Homebrew)
+brew install poppler tesseract tesseract-lang
+```
+
+Sin Tesseract los documentos se archivan igualmente y se marcan como `OCR no disponible`; puedes instalarlo más tarde y usar **Reprocesar texto** desde la revisión del documento. El OCR procesa como máximo las 10 primeras páginas de un PDF a 200 dpi. El idioma se configura en Ajustes (`spa`, `eng` o `spa+eng`).
+
+La biblioteca es opcional: si dejas la carpeta vacía, las subidas siguen usando el almacén content-addressed de `data-dir` y no se crea ningún árbol. Cambiar de raíz no mueve los documentos antiguos: cada documento recuerda su raíz original para poder descargarlo o borrarlo.
 
 ### Desarrollo
 
@@ -158,6 +208,7 @@ Los cálculos usan las facturas del periodo y contribuyente. **Las correspondenc
 - El emparejamiento usa códigos de 6 dígitos de un solo uso, con caducidad y almacenamiento transaccional.
 - Los tokens de extensión se guardan hasheados (SHA-256), son revocables y solo permiten `GET`.
 - Los documentos se guardan en disco y se referencian por SHA-256; no se sirven desde rutas arbitrarias.
+- La biblioteca solo escribe dentro de la carpeta configurada por el usuario. El OCR se ejecuta con herramientas locales y no envía contenido a terceros.
 - No hay acceso al certificado ni a la clave privada: la firma ocurre siempre en el navegador.
 - No hay telemetría, analítica ni llamadas a servicios de terceros.
 
@@ -179,6 +230,7 @@ backend/
   internal/calc/       calculadoras 303 y 130
   internal/catalog/    carga del YAML embebido
   internal/db/         SQLite y migraciones
+  internal/library/    árbol, escaneo, clasificación y OCR local
   internal/seed/       datos de demostración
   internal/storage/    documentos en disco
   internal/store/      acceso a datos y tokens
@@ -208,4 +260,6 @@ make check    # gofmt, go vet, vue-tsc y tsc
 - **“La interfaz web no está compilada”**: ejecuta `make build-web` o arranca el backend desde la raíz del repositorio con `-web-dir web/dist`.
 - **La extensión no conecta**: comprueba que el backend está en marcha, que la dirección coincide y que el código no ha caducado. Genera uno nuevo si es necesario.
 - **El panel no aparece en la sede**: abre el expediente desde el popup de la extensión. El panel solo se monta cuando hay un expediente activo y la extensión está emparejada.
+- **El escaneo no lee PDF escaneados o imágenes**: instala Poppler y Tesseract (ver [Biblioteca documental](#biblioteca-documental)), vuelve a Ajustes y pulsa **Escanear ahora**, o usa **Reprocesar texto** en la revisión del documento.
+- **Un documento aparece “por revisar”**: el clasificador no pudo confirmar el contribuyente, el tipo o la fecha. Abre el documento, corrige los campos y guarda; saldrá de la cola. Los documentos no cambian de carpeta al editar sus metadatos.
 - **Fechas o importes raros**: revisa la zona horaria del equipo y que los importes se introduzcan en formato español (`1.234,56`) o con punto decimal (`1234.56`).

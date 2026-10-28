@@ -69,7 +69,43 @@ export interface DocumentItem {
   amount_cents: number | null
   counterparty_nif: string
   metadata: Record<string, unknown>
+  text_excerpt?: string
+  ocr_status: string
+  review_status: 'ok' | 'review'
+  library_path?: string
+  source_path?: string
   created_at: string
+}
+
+export interface ScanProblem {
+  path: string
+  error: string
+}
+
+export interface ScanResult {
+  root: string
+  started_at: string
+  finished_at: string
+  scanned: number
+  imported: number
+  duplicates: number
+  skipped: number
+  errors: number
+  needs_review: number
+  truncated: boolean
+  problems?: ScanProblem[]
+}
+
+export interface LibraryConfig {
+  root: string
+  configured: boolean
+  writable: boolean
+  ocr_lang: string
+  years: number[]
+  tesseract: boolean
+  pdf_text: boolean
+  pdf_images: boolean
+  last_scan?: ScanResult
 }
 
 export interface Invoice {

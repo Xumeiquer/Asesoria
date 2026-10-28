@@ -61,19 +61,30 @@ func (s *Storage) Save(r io.Reader) (relPath, hash string, size int64, err error
 
 // Open opens a stored file, rejecting paths outside the storage root.
 func (s *Storage) Open(relPath string) (io.ReadSeekCloser, error) {
+	return OpenAt(s.Root, relPath)
+}
+
+// OpenAt opens a file under an explicit root. It is used for library documents
+// whose files live outside the default content-addressed storage.
+func OpenAt(root, relPath string) (io.ReadSeekCloser, error) {
 	clean := filepath.Clean(relPath)
 	if strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
 		return nil, fmt.Errorf("invalid storage path")
 	}
-	return os.Open(filepath.Join(s.Root, clean))
+	return os.Open(filepath.Join(root, clean))
 }
 
 func (s *Storage) Remove(relPath string) error {
+	return RemoveAt(s.Root, relPath)
+}
+
+// RemoveAt removes a file under an explicit root.
+func RemoveAt(root, relPath string) error {
 	clean := filepath.Clean(relPath)
 	if strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
 		return fmt.Errorf("invalid storage path")
 	}
-	err := os.Remove(filepath.Join(s.Root, clean))
+	err := os.Remove(filepath.Join(root, clean))
 	if os.IsNotExist(err) {
 		return nil
 	}

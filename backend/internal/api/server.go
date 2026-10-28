@@ -20,6 +20,7 @@ import (
 
 	"github.com/Xumeiquer/asesoria/internal/calendar"
 	"github.com/Xumeiquer/asesoria/internal/catalog"
+	"github.com/Xumeiquer/asesoria/internal/library"
 	"github.com/Xumeiquer/asesoria/internal/storage"
 	"github.com/Xumeiquer/asesoria/internal/store"
 	"github.com/go-chi/chi/v5"
@@ -33,6 +34,7 @@ type Server struct {
 	Catalog  *catalog.Catalog
 	Calendar *calendar.Generator
 	Files    *storage.Storage
+	Library  *library.Service
 	Secret   []byte
 	WebDir   string
 	DataDir  string
@@ -46,6 +48,7 @@ func New(st *store.Store, cat *catalog.Catalog, files *storage.Storage, secret, 
 		Catalog:  cat,
 		Calendar: calendar.New(cat),
 		Files:    files,
+		Library:  library.New(st),
 		Secret:   []byte(secret),
 		WebDir:   webDir,
 		DataDir:  dataDir,
@@ -95,7 +98,14 @@ func (s *Server) Handler() http.Handler {
 			pr.Get("/documents", s.handleListDocuments)
 			pr.Post("/documents", s.handleUploadDocument)
 			pr.Get("/documents/{id}/download", s.handleDownloadDocument)
+			pr.Patch("/documents/{id}", s.handleUpdateDocument)
+			pr.Post("/documents/{id}/reprocess", s.handleReprocessDocument)
 			pr.Delete("/documents/{id}", s.handleDeleteDocument)
+
+			pr.Get("/library", s.handleGetLibrary)
+			pr.Put("/library", s.handleUpdateLibrary)
+			pr.Post("/library/tree", s.handleEnsureLibraryTree)
+			pr.Post("/library/scan", s.handleScanLibrary)
 
 			pr.Get("/invoices", s.handleListInvoices)
 			pr.Post("/invoices", s.handleCreateInvoice)

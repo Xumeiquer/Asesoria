@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -24,6 +24,7 @@ import type { DocumentItem, Filing, FilingStatus, Model, Taxpayer } from '@/type
 const props = defineProps<{ id: string }>()
 const store = useAppStore()
 const toasts = useToasts()
+const router = useRouter()
 
 const filing = ref<Filing | null>(null)
 const taxpayer = ref<Taxpayer | null>(null)
@@ -31,6 +32,7 @@ const model = ref<Model | null>(null)
 const documents = ref<DocumentItem[]>([])
 const loading = ref(true)
 const busy = ref('')
+let switchSeq = 0
 const tab = ref<'summary' | 'docs' | 'present'>('summary')
 const notes = ref('')
 const checklist = ref<Record<string, boolean>>({})
@@ -76,6 +78,33 @@ async function load() {
     toasts.error(error instanceof Error ? error.message : 'No se pudo cargar el expediente')
   } finally {
     loading.value = false
+  }
+}
+
+async function moveToTaxpayer(taxpayerID: string, current: Filing) {
+  const seq = ++switchSeq
+  const targetName = store.taxpayers.find((t) => t.id === taxpayerID)?.name ?? 'el contribuyente seleccionado'
+  const label = `${current.model_code} ${current.period_label}`
+  try {
+    const params = new URLSearchParams({
+      taxpayer_id: taxpayerID,
+      model_code: current.model_code,
+      year: current.due_date.slice(0, 4),
+    })
+    const candidates = await api.get<Filing[]>(`/filings?${params}`)
+    if (seq !== switchSeq) return
+    const match = candidates.find((f) => f.period_label === current.period_label)
+    if (match) {
+      toasts.push(`Abriendo el ${label} de ${targetName}`)
+      await router.replace({ name: 'filing', params: { id: match.id } })
+    } else {
+      toasts.push(`${targetName} no tiene abierto el ${label}. Mostrando sus modelos.`)
+      await router.push({ name: 'models' })
+    }
+  } catch (error) {
+    if (seq !== switchSeq) return
+    toasts.error(error instanceof Error ? error.message : 'No se pudo cambiar de expediente')
+    await router.push({ name: 'models' })
   }
 }
 
@@ -189,7 +218,15 @@ function kindLabel(kind: string): string {
   return map[kind] ?? kind
 }
 
+watch(() => props.id, load)
+watch([() => store.selectedId, filing], ([id, current]) => {
+  if (!id || !current || id === current.taxpayer_id) return
+  void moveToTaxpayer(id, current)
+})
 onMounted(load)
+onBeforeUnmount(() => {
+  switchSeq++
+})
 </script>
 
 <template>

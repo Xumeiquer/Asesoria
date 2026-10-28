@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/Xumeiquer/asesoria/internal/domain"
+	"github.com/Xumeiquer/asesoria/internal/library"
 	"github.com/Xumeiquer/asesoria/internal/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -68,8 +70,13 @@ func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 		}
 		generated += n
 	}
+	libraryWarning := s.ensureTaxpayerLibrary(r.Context(), t)
 	s.Store.Log(r.Context(), actor(r), "create", "taxpayer", t.ID, map[string]any{"nif": t.NIF, "generated_filings": generated})
-	writeJSON(w, http.StatusCreated, map[string]any{"taxpayer": t, "generated_filings": generated})
+	resp := map[string]any{"taxpayer": t, "generated_filings": generated}
+	if libraryWarning != "" {
+		resp["library_warning"] = libraryWarning
+	}
+	writeJSON(w, http.StatusCreated, resp)
 }
 
 func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +102,9 @@ func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
 		handleStoreError(w, err)
 		return
 	}
+	if warning := s.ensureTaxpayerLibrary(r.Context(), updated); warning != "" {
+		s.Store.Log(r.Context(), actor(r), "library_tree_warning", "taxpayer", id, map[string]any{"error": warning})
+	}
 	s.Store.Log(r.Context(), actor(r), "update", "taxpayer", id, nil)
 	writeJSON(w, http.StatusOK, updated)
 }
@@ -107,6 +117,23 @@ func (s *Server) handleDeleteTaxpayer(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Store.Log(r.Context(), actor(r), "delete", "taxpayer", id, nil)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ensureTaxpayerLibrary creates the library tree for a taxpayer when a root is
+// configured. Failures are reported to the caller but never roll back the
+// taxpayer itself.
+func (s *Server) ensureTaxpayerLibrary(ctx context.Context, t domain.Taxpayer) string {
+	root, err := s.Library.Root(ctx)
+	if err != nil {
+		return err.Error()
+	}
+	if root == "" {
+		return ""
+	}
+	if _, err := library.EnsureTaxpayerTree(root, t, library.Years()); err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {

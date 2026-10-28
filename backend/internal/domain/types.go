@@ -57,7 +57,8 @@ type Filing struct {
 	UpdatedAt         string         `json:"updated_at"`
 }
 
-// Document is an uploaded file, stored content-addressed on disk.
+// Document is an uploaded or imported file. Legacy uploads are stored
+// content-addressed; library imports live under the configured library root.
 type Document struct {
 	ID              string         `json:"id"`
 	TaxpayerID      *string        `json:"taxpayer_id"`
@@ -68,9 +69,16 @@ type Document struct {
 	Size            int64          `json:"size"`
 	SHA256          string         `json:"sha256"`
 	StoragePath     string         `json:"-"`
+	StorageRoot     string         `json:"-"`
+	LibraryPath     string         `json:"library_path,omitempty"`
+	SourcePath      string         `json:"source_path,omitempty"`
 	DocDate         string         `json:"doc_date"`
 	AmountCents     *int64         `json:"amount_cents"`
 	CounterpartyNIF string         `json:"counterparty_nif"`
+	TextContent     string         `json:"-"`
+	TextExcerpt     string         `json:"text_excerpt,omitempty"`
+	OCRStatus       string         `json:"ocr_status"`
+	ReviewStatus    string         `json:"review_status"`
 	Metadata        map[string]any `json:"metadata"`
 	CreatedAt       string         `json:"created_at"`
 }
