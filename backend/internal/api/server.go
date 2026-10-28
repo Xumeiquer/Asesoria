@@ -89,6 +89,9 @@ func (s *Server) Handler() http.Handler {
 			pr.Get("/taxpayers/{id}", s.handleGetTaxpayer)
 			pr.Put("/taxpayers/{id}", s.handleUpdateTaxpayer)
 			pr.Delete("/taxpayers/{id}", s.handleDeleteTaxpayer)
+			pr.Get("/taxpayers/{id}/reta-history", s.handleListRetaHistory)
+
+			pr.Get("/reta/brackets", s.handleRetaBrackets)
 
 			pr.Get("/catalog", s.handleCatalog)
 			pr.Get("/calendar", s.handleCalendar)
@@ -398,12 +401,13 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 	tokens, _ := s.Store.ListTokens(r.Context())
 	calculators := []string{"303", "130"}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":         s.Version,
-		"catalog_version": s.Catalog.Version,
-		"data_dir":        s.DataDir,
-		"paired_tokens":   len(tokens),
-		"calculators":     calculators,
-		"dev":             s.Dev,
+		"version":            s.Version,
+		"catalog_version":    s.Catalog.Version,
+		"catalog_updated_at": s.Catalog.UpdatedAt,
+		"data_dir":           s.DataDir,
+		"paired_tokens":      len(tokens),
+		"calculators":        calculators,
+		"dev":                s.Dev,
 	})
 }
 

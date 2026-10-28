@@ -4,7 +4,7 @@ import { ArrowUpRight, Calculator, CheckCircle2, FileText, Search, XCircle } fro
 import PageHeader from '@/components/PageHeader.vue'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { api } from '@/api'
+import { api, dateLabel } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type { Model } from '@/types'
@@ -12,6 +12,8 @@ import type { Model } from '@/types'
 const store = useAppStore()
 const toasts = useToasts()
 const models = ref<Model[]>([])
+const catalogVersion = ref('')
+const catalogUpdatedAt = ref('')
 const loading = ref(true)
 const search = ref('')
 const category = ref('')
@@ -34,7 +36,9 @@ async function load() {
   try {
     const params = new URLSearchParams()
     if (store.selectedId) params.set('taxpayer_id', store.selectedId)
-    const data = await api.get<{ version: string; models: Model[] }>(`/catalog?${params}`)
+    const data = await api.get<{ version: string; updated_at: string; models: Model[] }>(`/catalog?${params}`)
+    catalogVersion.value = data.version
+    catalogUpdatedAt.value = data.updated_at
     models.value = data.models
   } catch (error) {
     toasts.error(error instanceof Error ? error.message : 'No se pudo cargar el catálogo')
@@ -65,6 +69,9 @@ onMounted(load)
       subtitle="Catálogo declarativo de obligaciones. La aplicación marca las que corresponden al perfil del contribuyente y las que tienen cálculo automático."
     >
       <template #actions>
+        <span class="chip bg-slate-100 text-slate-600">
+          Catálogo {{ catalogVersion }} · {{ dateLabel(catalogUpdatedAt) }}
+        </span>
         <span class="chip bg-emerald-50 text-emerald-700">
           {{ applicableCount }} obligaciones periódicas aplicables
         </span>
@@ -109,7 +116,9 @@ onMounted(load)
             </span>
             <div>
               <p class="text-sm font-bold leading-tight text-slate-900">{{ model.name }}</p>
-              <p class="mt-0.5 text-xs text-slate-500">{{ model.periodicity }}</p>
+              <p class="mt-0.5 text-xs text-slate-500">
+                {{ model.periodicity === 'Puntual' ? 'Puntual' : `Periodicidad: ${model.periodicity}` }}
+              </p>
             </div>
           </div>
           <span class="chip shrink-0" :class="entityTone(model.entity)">{{ model.entity }}</span>
@@ -121,7 +130,8 @@ onMounted(load)
           <span v-if="model.calculator" class="chip bg-emerald-50 text-emerald-700">
             <Calculator class="h-3.5 w-3.5" /> Cálculo automático
           </span>
-          <span v-if="model.applicable && model.auto" class="chip bg-slate-100 text-slate-600">
+          <span v-if="model.obsolete" class="chip bg-slate-200 text-slate-600">Suprimido</span>
+          <span v-else-if="model.applicable && model.auto" class="chip bg-slate-100 text-slate-600">
             <CheckCircle2 class="h-3.5 w-3.5" /> En tu calendario
           </span>
           <span v-else-if="!model.applicable" class="chip bg-rose-50 text-rose-600">
@@ -139,9 +149,12 @@ onMounted(load)
       size="lg"
     >
       <div v-if="selected" class="space-y-6">
-        <p class="text-sm leading-relaxed text-slate-600">{{ selected.description }}</p>
+        <div>
+          <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Para qué sirve</h3>
+          <p class="text-sm leading-relaxed text-slate-600">{{ selected.description }}</p>
+        </div>
 
-        <div class="grid gap-3 sm:grid-cols-3">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div class="rounded-xl bg-slate-50 p-3">
             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Entidad</p>
             <p class="mt-1 text-sm font-semibold text-slate-800">{{ selected.entity }}</p>
@@ -155,6 +168,10 @@ onMounted(load)
             <p class="mt-1 text-sm font-semibold text-slate-800">
               {{ selected.auto ? 'Automático' : 'Manual / puntual' }}
             </p>
+          </div>
+          <div class="rounded-xl bg-slate-50 p-3">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Actualizado</p>
+            <p class="mt-1 text-sm font-semibold text-slate-800">{{ dateLabel(selected.updated_at ?? '') }}</p>
           </div>
         </div>
 
@@ -176,7 +193,7 @@ onMounted(load)
 
         <div class="flex flex-wrap gap-2">
           <a :href="selected.url" target="_blank" rel="noreferrer" class="btn-ghost">
-            Abrir sede electrónica <ArrowUpRight class="h-4 w-4" />
+            Abrir en {{ selected.entity }} <ArrowUpRight class="h-4 w-4" />
           </a>
           <span v-if="!selected.applicable" class="chip bg-rose-50 text-rose-600">
             <XCircle class="h-3.5 w-3.5" /> No corresponde al perfil actual

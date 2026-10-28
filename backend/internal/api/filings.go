@@ -41,8 +41,9 @@ func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version": s.Catalog.Version,
-		"models":  out,
+		"version":    s.Catalog.Version,
+		"updated_at": s.Catalog.UpdatedAt,
+		"models":     out,
 	})
 }
 

@@ -1,4 +1,7 @@
 version: "2026.1"
+# Fecha de la última revisión del catálogo. Cada modelo puede sobrescribirla
+# con su propio campo updated_at si su ficha se revisa en otra fecha.
+updated_at: "2026-10-28"
 # Catálogo de obligaciones. Es data, no código: se versiona por ejercicio.
 # auto: true  -> se genera automáticamente en el calendario del contribuyente.
 # auto: false -> aparece en el catálogo y puede añadirse a mano (trámites puntuales).
@@ -8,37 +11,37 @@ models:
     entity: AEAT
     category: "Censal"
     periodicity: "Puntual"
-    description: "Comunicación de alta, cambios o baja en el Censo de Empresarios, Profesionales y Retenedores."
-    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    description: "Sirve para darse de alta, cambiar datos o darse de baja en el censo de Hacienda. Es el trámite censal básico para autónomos y sociedades antes de empezar la actividad o cuando cambia."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G322.shtml"
     auto: false
     documents:
       - "DNI/NIE del titular o escritura de constitución"
       - "Escritura de apoderamiento, si aplica"
-      - "Modelo 036/037 firmado"
+      - "Modelo 036 firmado"
     notes: "Se presenta antes de iniciar la actividad o en el plazo de un mes desde el cambio."
 
   - code: "037"
-    name: "Declaración censal simplificada"
+    name: "Declaración censal simplificada (suprimida)"
     entity: AEAT
     category: "Censal"
     periodicity: "Puntual"
-    description: "Versión simplificada del modelo 036 para autónomos con actividades y regímenes sencillos."
-    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    updated_at: "2025-02-03"
+    description: "Modelo histórico suprimido por la AEAT el 3 de febrero de 2025. Ya no se presenta: las altas, cambios y bajas censales se hacen con el modelo 036."
+    url: "https://sede.agenciatributaria.gob.es/Sede/todas-noticias/2025/enero/9/orden-ministerial-modificacion-declaraciones-censales.html"
     auto: false
+    obsolete: true
     applies:
       legal_forms: ["autonomo"]
-    documents:
-      - "DNI/NIE"
-      - "Certificado de empadronamiento, si aplica"
-    notes: "No admite todos los supuestos del 036. Verifica la vigencia del modelo antes de presentarlo."
+    documents: []
+    notes: "Modelo sin validez desde el 3 de febrero de 2025. No lo presentes: utiliza el modelo 036 para cualquier alta, cambio o baja censal."
 
   - code: "303"
     name: "Autoliquidación de IVA"
     entity: AEAT
     category: "IVA"
     periodicity: "Trimestral"
-    description: "Liquidación del IVA devengado y deducible del periodo."
-    url: "https://sede.agenciatributaria.gob.es/Sede/iva/presentar-declaracion-iva-modelo-303.html"
+    description: "Sirve para declarar y pagar el IVA de cada trimestre o mes: el IVA cobrado en las facturas menos el IVA soportado en gastos e inversiones."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G414.shtml"
     auto: true
     applies:
       economic_activity: true
@@ -58,8 +61,8 @@ models:
     entity: AEAT
     category: "IVA"
     periodicity: "Anual"
-    description: "Resumen anual de las operaciones de IVA declaradas en los modelos 303 del ejercicio."
-    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    description: "Sirve para resumir el IVA del año y comprobar que los datos coinciden con los modelos 303 presentados. Se presenta una vez al año."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G412.shtml"
     auto: true
     applies:
       economic_activity: true
@@ -78,8 +81,8 @@ models:
     entity: AEAT
     category: "IRPF"
     periodicity: "Trimestral"
-    description: "Pago a cuenta del IRPF para autónomos en estimación directa."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para ir pagando a cuenta el IRPF durante el año. Lo usan los autónomos en estimación directa y se calcula sobre el beneficio acumulado."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G601.shtml"
     auto: true
     applies:
       legal_forms: ["autonomo"]
@@ -101,8 +104,8 @@ models:
     entity: AEAT
     category: "IRPF"
     periodicity: "Trimestral"
-    description: "Pago a cuenta del IRPF para autónomos en estimación objetiva."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para ir pagando a cuenta el IRPF durante el año. Lo usan los autónomos en estimación objetiva (módulos), según su actividad."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G602.shtml"
     auto: true
     applies:
       legal_forms: ["autonomo"]
@@ -122,8 +125,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Trimestral"
-    description: "Ingreso de retenciones sobre rendimientos del trabajo y de actividades profesionales."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para ingresar en Hacienda las retenciones de IRPF que se descuentan en nóminas y en facturas de profesionales."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH01.shtml"
     auto: true
     applies:
       has_employees: true
@@ -142,8 +145,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Anual"
-    description: "Resumen anual de las retenciones declaradas en el modelo 111."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para resumir las retenciones del trabajo y de profesionales declaradas durante el año en el modelo 111."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI10.shtml"
     auto: true
     applies:
       has_employees: true
@@ -163,8 +166,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Trimestral"
-    description: "Ingreso de retenciones sobre alquileres de locales o viviendas."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para ingresar las retenciones de IRPF que se descuentan al pagar el alquiler de un local o una vivienda."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH02.shtml"
     auto: true
     applies:
       has_rentals: true
@@ -183,8 +186,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Anual"
-    description: "Resumen anual de las retenciones declaradas en el modelo 115."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para resumir las retenciones por alquileres declaradas durante el año en el modelo 115."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI00.shtml"
     auto: true
     applies:
       has_rentals: true
@@ -203,8 +206,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Trimestral"
-    description: "Retenciones sobre intereses, dividendos y otros rendimientos del capital."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para ingresar las retenciones que se aplican a intereses, dividendos y otros rendimientos del capital mobiliario."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH04.shtml"
     auto: false
     schedule:
       type: quarterly
@@ -220,8 +223,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Anual"
-    description: "Resumen anual de las retenciones declaradas en el modelo 123."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para resumir las retenciones del capital mobiliario declaradas durante el año en el modelo 123."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI12.shtml"
     auto: false
     schedule:
       type: annual
@@ -237,8 +240,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Trimestral"
-    description: "Retenciones sobre rentas abonadas a contribuyentes no residentes."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para ingresar las retenciones que se aplican a las rentas pagadas a personas o empresas no residentes en España."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GF05.shtml"
     auto: false
     schedule:
       type: quarterly
@@ -254,8 +257,8 @@ models:
     entity: AEAT
     category: "Retenciones"
     periodicity: "Anual"
-    description: "Resumen anual de las retenciones declaradas en el modelo 216."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para resumir las retenciones a no residentes declaradas durante el año en el modelo 216."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI22.shtml"
     auto: false
     schedule:
       type: annual
@@ -271,8 +274,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Trimestral"
-    description: "Declaración de entregas y adquisiciones intracomunitarias de bienes y servicios."
-    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    description: "Sirve para informar a Hacienda de las entregas y adquisiciones de bienes o servicios con otros países de la UE. Se usa para controlar el IVA intracomunitario."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI28.shtml"
     auto: true
     applies:
       economic_activity: true
@@ -291,8 +294,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Anual"
-    description: "Declaración anual de operaciones superiores a 3.005,06 € con terceros."
-    url: "https://sede.agenciatributaria.gob.es/Sede/iva.html"
+    description: "Sirve para informar de las operaciones anuales con clientes y proveedores que superan 3.005,06 €. Hacienda lo usa para cruzar datos."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI27.shtml"
     auto: true
     applies:
       economic_activity: true
@@ -311,8 +314,8 @@ models:
     entity: AEAT
     category: "Sociedades"
     periodicity: "Anual"
-    description: "Autoliquidación anual del Impuesto sobre Sociedades."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para declarar y pagar el Impuesto sobre Sociedades del ejercicio, es decir, el resultado fiscal de la sociedad y su cuota final."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GE04.shtml"
     auto: true
     applies:
       legal_forms: ["sl"]
@@ -333,8 +336,8 @@ models:
     entity: AEAT
     category: "Sociedades"
     periodicity: "Trimestral"
-    description: "Pagos a cuenta del Impuesto sobre Sociedades."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para pagar a cuenta el Impuesto sobre Sociedades durante el año. Se presenta en tres plazos."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GE00.shtml"
     auto: true
     applies:
       legal_forms: ["sl"]
@@ -367,8 +370,8 @@ models:
     entity: AEAT
     category: "IRPF"
     periodicity: "Anual"
-    description: "Autoliquidación anual del IRPF."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para declarar la renta anual del autónomo y regularizar el IRPF después de los pagos fraccionados y las retenciones."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G229.shtml"
     auto: true
     applies:
       legal_forms: ["autonomo"]
@@ -389,8 +392,8 @@ models:
     entity: AEAT
     category: "Patrimonio"
     periodicity: "Anual"
-    description: "Declaración anual del Impuesto sobre el Patrimonio cuando se supera el mínimo exento."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para declarar el patrimonio personal cuando supera el mínimo exento y, si corresponde, pagar el Impuesto sobre el Patrimonio."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G611.shtml"
     auto: false
     schedule:
       type: annual
@@ -407,8 +410,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Anual"
-    description: "Declaración informativa de bienes y derechos situados en el extranjero."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para informar a Hacienda de cuentas, inmuebles, valores y otros bienes situados en el extranjero cuando se superan los límites."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI34.shtml"
     auto: false
     schedule:
       type: annual
@@ -426,8 +429,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Anual"
-    description: "Declaración informativa de monedas virtuales custodiadas en el extranjero."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para informar de las criptomonedas custodiadas en exchanges o carteras del extranjero cuando se superan los límites."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI55.shtml"
     auto: false
     schedule:
       type: annual
@@ -444,8 +447,8 @@ models:
     entity: AEAT
     category: "Censal"
     periodicity: "Puntual"
-    description: "Alta, variación o baja en la matrícula del IAE."
-    url: "https://sede.agenciatributaria.gob.es/Sede/todas-gestiones.html"
+    description: "Sirve para darse de alta, cambiar o darse de baja en el Impuesto sobre Actividades Económicas (IAE) por la actividad o el local."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G323.shtml"
     auto: false
     applies:
       economic_activity: true
@@ -459,8 +462,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Anual"
-    description: "Resumen de rentas atribuidas a socios, herederos o comuneros."
-    url: "https://sede.agenciatributaria.gob.es/Sede/irpf.html"
+    description: "Sirve para que las comunidades de bienes, sociedades civiles y otras entidades sin personalidad informen de las rentas que reparten entre sus socios o comuneros."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI04.shtml"
     auto: false
     schedule:
       type: annual
@@ -477,8 +480,8 @@ models:
     entity: AEAT
     category: "Informativas"
     periodicity: "Anual"
-    description: "Declaración informativa de operaciones con personas o entidades vinculadas."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para informar de las operaciones con personas o empresas vinculadas, como socios o sociedades del mismo grupo, cuando se alcanzan los límites."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI43.shtml"
     auto: false
     schedule:
       type: annual
@@ -495,8 +498,8 @@ models:
     entity: AEAT
     category: "Otros tributos"
     periodicity: "Puntual"
-    description: "Autoliquidación de transmisiones patrimoniales onerosas y actos jurídicos documentados."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para declarar y pagar el ITP y AJD en compras de bienes, préstamos o documentos notariales. En la mayoría de comunidades se presenta ante la comunidad autónoma."
+    url: "https://sede.agenciatributaria.gob.es/Sede/declaraciones-informativas-otros-impuestos-tasas/impuesto-sobre-transmisiones-patrimoniales-actos-juridicos/itp-ajd-transmisiones-derechos-reales-fianzas/descarga-modelo-600.html"
     auto: false
     documents:
       - "Escritura o contrato"
@@ -508,8 +511,8 @@ models:
     entity: AEAT
     category: "Otros tributos"
     periodicity: "Puntual"
-    description: "Autoliquidación del Impuesto sobre Sucesiones y Donaciones."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para declarar y pagar el Impuesto sobre Sucesiones cuando se recibe una herencia. La gestión corresponde a la comunidad autónoma."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G702.shtml"
     auto: false
     documents:
       - "Certificado de defunción"
@@ -522,8 +525,8 @@ models:
     entity: AEAT
     category: "Otros tributos"
     periodicity: "Puntual"
-    description: "Autoliquidación del Impuesto sobre Donaciones."
-    url: "https://sede.agenciatributaria.gob.es/Sede/impuestos-tasas.html"
+    description: "Sirve para declarar y pagar el Impuesto sobre Donaciones cuando se recibe un bien o dinero por donación. La gestión corresponde a la comunidad autónoma."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G703.shtml"
     auto: false
     documents:
       - "Escritura de donación"
@@ -535,8 +538,8 @@ models:
     entity: TGSS
     category: "Cotización"
     periodicity: "Puntual"
-    description: "Alta o variaciones del trabajador autónomo en el Régimen Especial de Trabajadores Autónomos."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para darse de alta, cambiar datos o darse de baja como autónomo en el Régimen Especial de Trabajadores Autónomos (RETA)."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass/Categorias/Altas%2C+bajas+y+modificaciones/Altas+y+afiliacion+de+trabajadores/Alta_trabajo_autonomo"
     auto: false
     applies:
       legal_forms: ["autonomo"]
@@ -551,8 +554,8 @@ models:
     entity: TGSS
     category: "Cotización"
     periodicity: "Puntual"
-    description: "Solicitud de cuenta de cotización y número de la Seguridad Social de la empresa."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para inscribir a la empresa en la Seguridad Social y obtener su número de la Seguridad Social y su cuenta de cotización. Es el paso previo para contratar trabajadores."
+    url: "https://www.seg-social.es/wps/portal/wss/internet/Empresarios/Inscripcion/1227/1229"
     auto: false
     applies:
       has_employees: true
@@ -564,12 +567,12 @@ models:
     notes: "Previo al alta de los trabajadores."
 
   - code: "TC1"
-    name: "Relación nominal de trabajadores (RLC/TC1)"
+    name: "Recibo de liquidación de cotizaciones (TC1/RLC)"
     entity: TGSS
     category: "Cotización"
     periodicity: "Mensual"
-    description: "Liquidación mensual de cuotas de la Seguridad Social y conceptos de recaudación conjunta."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para presentar cada mes la liquidación de cuotas de la Seguridad Social de los trabajadores y pagar el importe resultante."
+    url: "https://www.seg-social.es/wps/portal/wss/internet/Trabajadores/CotizacionRecaudacionTrabajadores/9896/38386/38394"
     auto: true
     applies:
       has_employees: true
@@ -584,12 +587,12 @@ models:
     notes: "Plazo: último día del mes siguiente. Sistema RED / Import@ss."
 
   - code: "TC2"
-    name: "Relación nominal de trabajadores (IDC/TC2)"
+    name: "Relación nominal de trabajadores (TC2/RNT)"
     entity: TGSS
     category: "Cotización"
     periodicity: "Mensual"
-    description: "Detalle individualizado de bases y contingencias que acompaña al TC1."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para enviar, junto al TC1, el detalle individual de cada trabajador: bases de cotización, contingencias y días cotizados."
+    url: "https://www.seg-social.es/wps/portal/wss/internet/InformacionUtil/5300/1889/7019/39263/1198/1203"
     auto: true
     applies:
       has_employees: true
@@ -606,8 +609,9 @@ models:
     entity: TGSS
     category: "Cotización"
     periodicity: "Mensual"
-    description: "Cuota mensual del autónomo según los rendimientos netos."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    updated_at: "2026-10-29"
+    description: "Sirve para pagar cada mes la cuota de autónomos. La base de cotización se elige dentro del tramo que corresponde a la previsión de rendimientos netos y se regulariza al cerrar el ejercicio."
+    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass/Categorias/Altas%2C+bajas+y+modificaciones/Bajas+y+modificaciones/BCRendimientos"
     auto: true
     applies:
       legal_forms: ["autonomo"]
@@ -615,18 +619,16 @@ models:
       type: monthly
       due_day: 0
       period_offset_months: 0
-    documents:
-      - "Rendimientos netos del ejercicio"
-      - "Datos de la base de cotización"
-    notes: "Domiciliación el último día del mes. Regularización anual según rendimientos."
+    documents: []
+    notes: "No requiere documentación mensual. La previsión de rendimientos netos determina el tramo y la base elegida; la regularización anual usa los rendimientos reales. La base puede cambiar hasta 6 veces al año."
 
   - code: "IT"
     name: "Incapacidad temporal y maternidad/paternidad"
     entity: TGSS
     category: "Cotización"
     periodicity: "Puntual"
-    description: "Comunicación de partes de baja, confirmación y alta."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para comunicar y gestionar las bajas, confirmaciones y altas médicas de los trabajadores por incapacidad temporal, maternidad o paternidad."
+    url: "https://www.seg-social.es/wps/portal/wss/internet/InformacionUtil/5300/1889/7019/39263/1198/1206"
     auto: false
     applies:
       has_employees: true
@@ -641,8 +643,8 @@ models:
     entity: TGSS
     category: "Cotización"
     periodicity: "Puntual"
-    description: "Certificado de datos de cotización para prestaciones."
-    url: "https://portal.seg-social.gob.es/wps/portal/importass/importass"
+    description: "Sirve para que la empresa acredite los datos de cotización y salario de un trabajador cuando solicita una prestación."
+    url: "https://www.seg-social.es/wps/portal/wss/internet/Pensionistas/Servicios/34887/40968/41028#BIN41037"
     auto: false
     applies:
       has_employees: true
@@ -655,8 +657,8 @@ models:
     entity: Registro Mercantil
     category: "Contabilidad"
     periodicity: "Anual"
-    description: "Formulación de las cuentas anuales por el órgano de administración."
-    url: "https://www.registradores.org/"
+    description: "Sirve para que los administradores formulen las cuentas anuales de la sociedad (balance, cuenta de resultados, memoria...) al cierre del ejercicio."
+    url: "https://www.registradores.org/el-colegio/registro-mercantil"
     auto: true
     applies:
       legal_forms: ["sl"]
@@ -670,15 +672,15 @@ models:
       - "Cuenta de pérdidas y ganancias"
       - "Memoria"
       - "Estado de cambios en el patrimonio neto"
-    notes: "Dentro de los 3 meses siguientes al cierre del ejercicio."
+    notes: "Dentro de los 3 meses siguientes al cierre del ejercicio. La formulación y aprobación son actos internos; el depósito posterior se tramita con RM-DEPOSITO."
 
   - code: "RM-LEGALIZACION"
     name: "Legalización de libros contables"
     entity: Registro Mercantil
     category: "Contabilidad"
     periodicity: "Anual"
-    description: "Legalización telemática de los libros de contabilidad."
-    url: "https://www.registradores.org/"
+    description: "Sirve para legalizar en el Registro Mercantil los libros contables y societarios, como el libro diario, el de inventarios o el de actas."
+    url: "https://www.registradores.org/navegacion-por-categorias/-/asset_publisher/eXXttUcwzL5U/content/legalizacio-n-de-libros"
     auto: true
     applies:
       legal_forms: ["sl"]
@@ -698,8 +700,8 @@ models:
     entity: Registro Mercantil
     category: "Contabilidad"
     periodicity: "Anual"
-    description: "Presentación y depósito de las cuentas anuales aprobadas."
-    url: "https://www.registradores.org/"
+    description: "Sirve para depositar en el Registro Mercantil las cuentas anuales aprobadas por la junta, de modo que queden publicadas."
+    url: "https://www.registradores.org/navegacion-por-categorias/-/asset_publisher/eXXttUcwzL5U/content/depo-sito-de-cuentas"
     auto: true
     applies:
       legal_forms: ["sl"]

@@ -22,9 +22,11 @@ type Model struct {
 	Entity      string    `yaml:"entity" json:"entity"`
 	Category    string    `yaml:"category" json:"category"`
 	Periodicity string    `yaml:"periodicity" json:"periodicity"`
+	UpdatedAt   string    `yaml:"updated_at,omitempty" json:"updated_at,omitempty"`
 	Description string    `yaml:"description" json:"description"`
 	URL         string    `yaml:"url" json:"url"`
 	Auto        bool      `yaml:"auto" json:"auto"`
+	Obsolete    bool      `yaml:"obsolete,omitempty" json:"obsolete,omitempty"`
 	Applies     Applies   `yaml:"applies" json:"applies"`
 	Schedule    *Schedule `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	Documents   []string  `yaml:"documents" json:"documents"`
@@ -67,15 +69,17 @@ type CustomDue struct {
 }
 
 type file struct {
-	Version string  `yaml:"version"`
-	Models  []Model `yaml:"models"`
+	Version   string  `yaml:"version"`
+	UpdatedAt string  `yaml:"updated_at"`
+	Models    []Model `yaml:"models"`
 }
 
 // Catalog is the in-memory, immutable catalogue.
 type Catalog struct {
-	Version string
-	models  []Model
-	byCode  map[string]Model
+	Version   string
+	UpdatedAt string
+	models    []Model
+	byCode    map[string]Model
 }
 
 // Load parses the embedded catalogue.
@@ -87,7 +91,20 @@ func Load() (*Catalog, error) {
 	if len(f.Models) == 0 {
 		return nil, fmt.Errorf("catalog is empty")
 	}
-	c := &Catalog{Version: f.Version, models: f.Models, byCode: make(map[string]Model, len(f.Models))}
+	if f.UpdatedAt == "" {
+		return nil, fmt.Errorf("catalog has no updated_at")
+	}
+	for i := range f.Models {
+		if f.Models[i].UpdatedAt == "" {
+			f.Models[i].UpdatedAt = f.UpdatedAt
+		}
+	}
+	c := &Catalog{
+		Version:   f.Version,
+		UpdatedAt: f.UpdatedAt,
+		models:    f.Models,
+		byCode:    make(map[string]Model, len(f.Models)),
+	}
 	for _, m := range f.Models {
 		if m.Code == "" {
 			return nil, fmt.Errorf("catalog contains a model without code")

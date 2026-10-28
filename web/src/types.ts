@@ -16,8 +16,36 @@ export interface Taxpayer {
   cnae: string
   fiscal_year_end: string
   iban: string
+  reta_base_cents: number
+  reta_base_from: string
+  reta_net_income_cents: number
+  reta_net_income_year: number
   created_at: string
   updated_at: string
+}
+
+export interface RetaBracket {
+  number: number
+  table: 'reducida' | 'general'
+  min_income_cents: number
+  max_income_cents: number
+  min_base_cents: number
+  max_base_cents: number
+}
+
+export interface RetaBracketsResponse {
+  year: number
+  brackets: RetaBracket[]
+}
+
+export interface RetaBaseChange {
+  id: string
+  taxpayer_id: string
+  base_cents: number
+  base_from: string
+  net_income_cents: number
+  net_income_year: number
+  created_at: string
 }
 
 export interface ComputedLine {
@@ -141,9 +169,11 @@ export interface Model {
   entity: string
   category: string
   periodicity: string
+  updated_at?: string
   description: string
   url: string
   auto: boolean
+  obsolete?: boolean
   applies: Record<string, unknown>
   schedule?: Schedule
   documents: string[]
@@ -167,6 +197,7 @@ export interface Dashboard {
 export interface AppMeta {
   version: string
   catalog_version: string
+  catalog_updated_at: string
   data_dir: string
   paired_tokens: number
   calculators: string[]

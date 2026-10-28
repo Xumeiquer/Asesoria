@@ -4,9 +4,11 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Xumeiquer/asesoria/internal/domain"
 	"github.com/Xumeiquer/asesoria/internal/library"
+	"github.com/Xumeiquer/asesoria/internal/reta"
 	"github.com/Xumeiquer/asesoria/internal/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -25,6 +27,11 @@ type taxpayerInput struct {
 	CNAE             string `json:"cnae"`
 	FiscalYearEnd    string `json:"fiscal_year_end"`
 	IBAN             string `json:"iban"`
+
+	RetaBaseCents      int64  `json:"reta_base_cents"`
+	RetaBaseFrom       string `json:"reta_base_from"`
+	RetaNetIncomeCents int64  `json:"reta_net_income_cents"`
+	RetaNetIncomeYear  int    `json:"reta_net_income_year"`
 }
 
 func (s *Server) handleListTaxpayers(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +52,37 @@ func (s *Server) handleGetTaxpayer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, t)
 }
 
+func (s *Server) handleRetaBrackets(w http.ResponseWriter, r *http.Request) {
+	year := intQuery(r, "year", currentYear())
+	brackets, ok := reta.Brackets(year)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "no hay tabla de tramos de RETA para ese año")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"year": year, "brackets": brackets})
+}
+
+func (s *Server) handleListRetaHistory(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if _, err := s.Store.GetTaxpayer(r.Context(), id); err != nil {
+		handleStoreError(w, err)
+		return
+	}
+	changes, err := s.Store.ListRetaBaseChanges(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, changes)
+}
+
+func retaProfileChanged(before, after domain.Taxpayer) bool {
+	return before.RetaBaseCents != after.RetaBaseCents ||
+		before.RetaBaseFrom != after.RetaBaseFrom ||
+		before.RetaNetIncomeCents != after.RetaNetIncomeCents ||
+		before.RetaNetIncomeYear != after.RetaNetIncomeYear
+}
+
 func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	var in taxpayerInput
 	if err := decodeJSON(r, &in); err != nil {
@@ -59,6 +97,9 @@ func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.CreateTaxpayer(r.Context(), &t); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if err := s.Store.AddRetaBaseChange(r.Context(), t); err != nil {
+		s.Store.Log(r.Context(), actor(r), "reta_history_warning", "taxpayer", t.ID, map[string]any{"error": err.Error()})
 	}
 	generated := 0
 	for _, year := range []int{currentYear(), currentYear() + 1} {
@@ -101,6 +142,11 @@ func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.UpdateTaxpayer(r.Context(), &updated); err != nil {
 		handleStoreError(w, err)
 		return
+	}
+	if retaProfileChanged(existing, updated) {
+		if err := s.Store.AddRetaBaseChange(r.Context(), updated); err != nil {
+			s.Store.Log(r.Context(), actor(r), "reta_history_warning", "taxpayer", id, map[string]any{"error": err.Error()})
+		}
 	}
 	if warning := s.ensureTaxpayerLibrary(r.Context(), updated); warning != "" {
 		s.Store.Log(r.Context(), actor(r), "library_tree_warning", "taxpayer", id, map[string]any{"error": warning})
@@ -151,6 +197,11 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 		CNAE:             strings.TrimSpace(in.CNAE),
 		FiscalYearEnd:    in.FiscalYearEnd,
 		IBAN:             strings.TrimSpace(in.IBAN),
+
+		RetaBaseCents:      in.RetaBaseCents,
+		RetaBaseFrom:       strings.TrimSpace(in.RetaBaseFrom),
+		RetaNetIncomeCents: in.RetaNetIncomeCents,
+		RetaNetIncomeYear:  in.RetaNetIncomeYear,
 	}
 	if in.EconomicActivity != nil {
 		t.EconomicActivity = *in.EconomicActivity
@@ -169,6 +220,10 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	}
 	if t.LegalForm == domain.LegalFormSL {
 		t.EconomicActivity = true
+		t.RetaBaseCents = 0
+		t.RetaBaseFrom = ""
+		t.RetaNetIncomeCents = 0
+		t.RetaNetIncomeYear = 0
 	}
 	if t.VATRegime == "" {
 		t.VATRegime = "general"
@@ -187,7 +242,43 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	if t.FiscalYearEnd == "" {
 		t.FiscalYearEnd = "12-31"
 	}
+	if msg := validateRetaProfile(&t); msg != "" {
+		return t, msg
+	}
 	return t, ""
+}
+
+func validateRetaProfile(t *domain.Taxpayer) string {
+	if t.LegalForm != domain.LegalFormAutonomo {
+		return ""
+	}
+	hasProfile := t.RetaBaseCents != 0 || t.RetaNetIncomeCents != 0
+	if !hasProfile {
+		// An empty profile is valid. Ignore a stray date/year so the record stays
+		// consistent even if an older client sends empty RETA fields.
+		t.RetaBaseFrom = ""
+		t.RetaNetIncomeYear = 0
+		return ""
+	}
+	if t.RetaBaseCents <= 0 {
+		return "indica la base de cotización mensual"
+	}
+	if t.RetaBaseFrom == "" {
+		return "indica desde cuándo es válida la base de cotización"
+	}
+	if _, err := time.Parse("2006-01-02", t.RetaBaseFrom); err != nil {
+		return "la fecha de vigencia debe tener formato AAAA-MM-DD"
+	}
+	if t.RetaNetIncomeYear == 0 {
+		t.RetaNetIncomeYear = currentYear()
+	}
+	if t.RetaNetIncomeYear < 2023 || t.RetaNetIncomeYear > 2100 {
+		return "el año de la previsión de rendimientos no es válido"
+	}
+	if _, err := reta.ValidateBase(t.RetaNetIncomeYear, t.RetaNetIncomeCents, t.RetaBaseCents); err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 var _ = store.ErrNotFound

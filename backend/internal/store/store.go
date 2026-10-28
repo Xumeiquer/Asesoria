@@ -112,6 +112,7 @@ func (s *Store) ListTaxpayers(ctx context.Context) ([]domain.Taxpayer, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
 		       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
 		FROM taxpayers ORDER BY name COLLATE NOCASE`)
 	if err != nil {
@@ -133,6 +134,7 @@ func (s *Store) GetTaxpayer(ctx context.Context, id string) (domain.Taxpayer, er
 	row := s.DB.QueryRowContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
 		       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
 		FROM taxpayers WHERE id = ?`, id)
 	t, err := scanTaxpayer(row)
@@ -151,11 +153,14 @@ func (s *Store) CreateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	_, err := s.DB.ExecContext(ctx, `
 		INSERT INTO taxpayers (id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
 		                       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		                       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		                       created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
 		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
-		t.CNAE, t.FiscalYearEnd, t.IBAN, t.CreatedAt, t.UpdatedAt)
+		t.CNAE, t.FiscalYearEnd, t.IBAN,
+		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
+		t.CreatedAt, t.UpdatedAt)
 	return err
 }
 
@@ -164,11 +169,15 @@ func (s *Store) UpdateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE taxpayers SET nif = ?, name = ?, legal_form = ?, email = ?, phone = ?,
 		       vat_regime = ?, irpf_method = ?, has_employees = ?, has_rentals = ?,
-		       economic_activity = ?, cnae = ?, fiscal_year_end = ?, iban = ?, updated_at = ?
+		       economic_activity = ?, cnae = ?, fiscal_year_end = ?, iban = ?,
+		       reta_base_cents = ?, reta_base_from = ?, reta_net_income_cents = ?, reta_net_income_year = ?,
+		       updated_at = ?
 		WHERE id = ?`,
 		t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
 		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
-		t.CNAE, t.FiscalYearEnd, t.IBAN, t.UpdatedAt, t.ID)
+		t.CNAE, t.FiscalYearEnd, t.IBAN,
+		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
+		t.UpdatedAt, t.ID)
 	if err != nil {
 		return err
 	}
@@ -189,12 +198,50 @@ func (s *Store) DeleteTaxpayer(ctx context.Context, id string) error {
 	return nil
 }
 
+// AddRetaBaseChange records an effective-dated snapshot of the current RETA
+// profile. It is a no-op when the taxpayer has no chosen base.
+func (s *Store) AddRetaBaseChange(ctx context.Context, t domain.Taxpayer) error {
+	if t.ID == "" || t.RetaBaseCents == 0 {
+		return nil
+	}
+	_, err := s.DB.ExecContext(ctx, `
+		INSERT INTO reta_base_history
+		    (id, taxpayer_id, base_cents, base_from, net_income_cents, net_income_year, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		NewID(), t.ID, t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear, Now())
+	return err
+}
+
+func (s *Store) ListRetaBaseChanges(ctx context.Context, taxpayerID string) ([]domain.RetaBaseChange, error) {
+	rows, err := s.DB.QueryContext(ctx, `
+		SELECT id, taxpayer_id, base_cents, base_from, net_income_cents, net_income_year, created_at
+		FROM reta_base_history
+		WHERE taxpayer_id = ?
+		ORDER BY base_from DESC, created_at DESC`, taxpayerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]domain.RetaBaseChange, 0)
+	for rows.Next() {
+		var change domain.RetaBaseChange
+		if err := rows.Scan(&change.ID, &change.TaxpayerID, &change.BaseCents, &change.BaseFrom,
+			&change.NetIncomeCents, &change.NetIncomeYear, &change.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, change)
+	}
+	return out, rows.Err()
+}
+
 func scanTaxpayer(row scanner) (domain.Taxpayer, error) {
 	var t domain.Taxpayer
 	var hasEmployees, hasRentals, economicActivity int
 	err := row.Scan(&t.ID, &t.NIF, &t.Name, &t.LegalForm, &t.Email, &t.Phone,
 		&t.VATRegime, &t.IRPFMethod, &hasEmployees, &hasRentals, &economicActivity,
-		&t.CNAE, &t.FiscalYearEnd, &t.IBAN, &t.CreatedAt, &t.UpdatedAt)
+		&t.CNAE, &t.FiscalYearEnd, &t.IBAN,
+		&t.RetaBaseCents, &t.RetaBaseFrom, &t.RetaNetIncomeCents, &t.RetaNetIncomeYear,
+		&t.CreatedAt, &t.UpdatedAt)
 	t.HasEmployees = hasEmployees == 1
 	t.HasRentals = hasRentals == 1
 	t.EconomicActivity = economicActivity == 1

@@ -13,6 +13,7 @@ MVP funcional. Incluye:
 - Expediente por obligación: estado, notas, checklist, documentos y justificante.
 - Cálculo automático de **modelo 303 (IVA)** y **modelo 130 (pago fraccionado de IRPF)** a partir de facturas registradas.
 - Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
+- Perfil RETA por autónomo: previsión anual de rendimientos netos, base de cotización mensual con fecha de vigencia e historial de cambios. La base se valida contra la tabla general y reducida de 2026; no cubre particularidades como pluriactividad o actividades artísticas.
 - Biblioteca documental gestionada en una carpeta del equipo, con árbol por contribuyente/año/trimestre/tipo, escaneo incremental, extracción de texto y OCR local opcional.
 - Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles y descarga de documentos.
 - Datos de demostración con `-demo`.
@@ -46,6 +47,7 @@ Todavía **no** presenta modelos, no custodia certificados y no emite facturas. 
 
 - Go **1.26 o superior**.
 - Node.js **20 o superior** (probado con Node 24) y npm solo para compilar la web y la extensión.
+- Opcional para OCR local: **Tesseract** y **Poppler** instalados en el sistema. No forman parte del binario; ver [OCR: dependencias del sistema](#ocr-dependencias-del-sistema-opcional).
 - Chrome, Edge o Brave basado en Chromium para la extensión. Firefox no está validado.
 
 ## Puesta en marcha
@@ -112,7 +114,17 @@ La importación es **manual**: pulsa **Escanear biblioteca** en Documentos o Aju
 - Clasifica por la carpeta, el NIF y el contenido; lo que no puede confirmar queda en la cola **por revisar** de Documentos. Nunca marca un modelo como presentado ni crea facturas automáticamente.
 - Extrae texto de PDF con capa de texto, TXT/CSV/MD, DOCX y XLSX. Para PDF escaneados e imágenes intenta OCR local con Tesseract.
 
-No se usa OCR en la nube: todo ocurre en el equipo. Para habilitar el texto de documentos escaneados instala las herramientas locales:
+No se usa OCR en la nube: todo ocurre en el equipo. La extracción no está implementada como librería Go; el binario invoca herramientas locales mediante `exec.LookPath` y `exec.Command`. No hay dependencias Go adicionales ni CGO por esta función.
+
+#### OCR: dependencias del sistema (opcional)
+
+| Ejecutable | Paquete / origen | Uso |
+| --- | --- | --- |
+| `pdftotext` | Poppler | Extrae la capa de texto de PDF digitales. |
+| `pdftoppm` | Poppler | Rasteriza PDF escaneados para pasarlos a Tesseract. |
+| `tesseract` | Tesseract OCR + datos de idioma (`spa`, `eng`) | OCR de imágenes y de páginas rasterizadas. |
+
+Instalación orientativa:
 
 ```bash
 # Debian/Ubuntu
@@ -122,7 +134,20 @@ sudo apt install poppler-utils tesseract-ocr tesseract-ocr-spa
 brew install poppler tesseract tesseract-lang
 ```
 
-Sin Tesseract los documentos se archivan igualmente y se marcan como `OCR no disponible`; puedes instalarlo más tarde y usar **Reprocesar texto** desde la revisión del documento. El OCR procesa como máximo las 10 primeras páginas de un PDF a 200 dpi. El idioma se configura en Ajustes (`spa`, `eng` o `spa+eng`).
+En **Windows** no hay un paquete oficial único: instala [Tesseract para Windows (UB Mannheim)](https://github.com/UB-Mannheim/tesseract/wiki) con el idioma español y un build de [Poppler para Windows](https://github.com/oschwartz10612/poppler-windows/releases). Añade al `PATH` las carpetas que contienen `tesseract.exe`, `pdftotext.exe` y `pdftoppm.exe`. En PowerShell puedes comprobar la detección con `where.exe tesseract`, `where.exe pdftotext` y `where.exe pdftoppm`.
+
+Comprobación en Linux/macOS:
+
+```bash
+tesseract --version
+tesseract --list-langs   # debe incluir spa
+pdftotext -v
+pdftoppm -v
+```
+
+La aplicación detecta estas herramientas en tiempo de ejecución y muestra su estado en **Ajustes → Biblioteca documental** (`tesseract`, `pdf_text`, `pdf_images`). Sin Tesseract los documentos se archivan igualmente y se marcan como `OCR no disponible`; puedes instalarlo más tarde y usar **Reprocesar texto** desde la revisión del documento. Sin Poppler no se procesan PDF; con Poppler y sin Tesseract solo se leen PDF con capa de texto. El OCR procesa como máximo las 10 primeras páginas de un PDF a 200 dpi y el idioma se configura en Ajustes (`spa`, `eng` o `spa+eng`).
+
+El binario Go se compila para Linux, macOS y Windows sin CGO. Las herramientas de OCR no se empaquetan dentro del binario y deben instalarse por separado en cada equipo. El código usa los nombres estándar (`tesseract`, `pdftotext`, `pdftoppm`) y no contiene rutas específicas de plataforma; la compilación cruzada está verificada, aunque conviene comprobar la detección en cada equipo después de instalarlas.
 
 La biblioteca es opcional: si dejas la carpeta vacía, las subidas siguen usando el almacén content-addressed de `data-dir` y no se crea ningún árbol. Cambiar de raíz no mueve los documentos antiguos: cada documento recuerda su raíz original para poder descargarlo o borrarlo.
 
@@ -191,9 +216,13 @@ La extensión no rellena, envía ni firma sin intervención del usuario, y nunca
 
 ## Catálogo y calendario
 
-El catálogo está en `backend/internal/catalog/data/models.yaml`. Cada modelo declara:
+El catálogo está en `backend/internal/catalog/data/models.yaml`. Declara `version` y `updated_at`, la fecha de la última revisión de sus fichas. Cada modelo puede sobrescribir esa fecha con su propio `updated_at`. La aplicación muestra esa fecha como **Actualizado**; se mantiene al revisar el modelo contra la sede oficial y no se obtiene automáticamente.
 
-- `code`, `name`, `entity`, `category`, `periodicity`, `description`, `url`.
+Cada modelo declara:
+
+- `code`, `name`, `entity`, `category`, `periodicity`, `description` (explicación de para qué sirve), `url`.
+- `updated_at` (opcional): fecha de la última actualización de esa ficha. Si se omite, hereda la del catálogo.
+- `obsolete` (opcional): conserva un modelo histórico sin tratarlo como vigente. El 037 está marcado así desde su supresión en 2025.
 - `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres o actividad económica.
 - `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento y offsets de periodo.
 - `documents`: checklist documental.
@@ -270,6 +299,6 @@ make check    # gofmt, go vet, vue-tsc y tsc
 - **“La interfaz web no está embebida en este binario”**: compila el ERP con `make build-backend`; el binario incorpora la SPA y no depende de `web/dist` en ejecución.
 - **La extensión no conecta**: comprueba que el backend está en marcha, que la dirección coincide y que el código no ha caducado. Genera uno nuevo si es necesario.
 - **El panel no aparece en la sede**: abre el expediente desde el popup de la extensión. El panel solo se monta cuando hay un expediente activo y la extensión está emparejada.
-- **El escaneo no lee PDF escaneados o imágenes**: instala Poppler y Tesseract (ver [Biblioteca documental](#biblioteca-documental)), vuelve a Ajustes y pulsa **Escanear ahora**, o usa **Reprocesar texto** en la revisión del documento.
+- **El escaneo no lee PDF escaneados o imágenes**: instala Poppler y Tesseract (ver [Dependencias de OCR](#ocr-dependencias-del-sistema-opcional)), comprueba que `tesseract`, `pdftotext` y `pdftoppm` están en el `PATH` (`where.exe` en Windows, `command -v` en Linux/macOS), reinicia la aplicación, vuelve a Ajustes y pulsa **Escanear ahora**, o usa **Reprocesar texto** en la revisión del documento.
 - **Un documento aparece “por revisar”**: el clasificador no pudo confirmar el contribuyente, el tipo o la fecha. Abre el documento, corrige los campos y guarda; saldrá de la cola. Los documentos no cambian de carpeta al editar sus metadatos.
 - **Fechas o importes raros**: revisa la zona horaria del equipo y que los importes se introduzcan en formato español (`1.234,56`) o con punto decimal (`1234.56`).

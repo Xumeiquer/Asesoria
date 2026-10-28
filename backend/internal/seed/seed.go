@@ -31,6 +31,8 @@ func Demo(ctx context.Context, st *store.Store, cat *catalog.Catalog) error {
 			NIF: "12345678Z", Name: "Lucía Demo", LegalForm: domain.LegalFormAutonomo,
 			Email: "lucia@example.test", VATRegime: "general", IRPFMethod: "directa",
 			EconomicActivity: true, CNAE: "7022", FiscalYearEnd: "12-31",
+			RetaBaseCents: 120000, RetaBaseFrom: fmt.Sprintf("%d-01-01", now.Year()),
+			RetaNetIncomeCents: 1800000, RetaNetIncomeYear: now.Year(),
 		},
 		{
 			NIF: "B12345678", Name: "Estudio Demo SL", LegalForm: domain.LegalFormSL,
@@ -42,6 +44,9 @@ func Demo(ctx context.Context, st *store.Store, cat *catalog.Catalog) error {
 	for i := range taxpayers {
 		if err := st.CreateTaxpayer(ctx, &taxpayers[i]); err != nil {
 			return fmt.Errorf("create demo taxpayer: %w", err)
+		}
+		if err := st.AddRetaBaseChange(ctx, taxpayers[i]); err != nil {
+			return fmt.Errorf("create demo RETA history: %w", err)
 		}
 		for _, year := range []int{now.Year(), now.Year() + 1} {
 			if _, err := st.UpsertFilings(ctx, gen.Generate(taxpayers[i], year)); err != nil {

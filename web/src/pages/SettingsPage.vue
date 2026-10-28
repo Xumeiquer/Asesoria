@@ -16,7 +16,7 @@ import {
   Trash2,
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
-import { api, dateTimeLabel } from '@/api'
+import { api, dateLabel, dateTimeLabel } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type { ApiToken, LibraryConfig, PairingCode, ScanResult } from '@/types'
@@ -364,6 +364,10 @@ onMounted(load)
             <div>
               <dt class="text-xs text-slate-400">Catálogo</dt>
               <dd class="font-medium text-slate-800">{{ store.meta?.catalog_version ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-400">Catálogo actualizado</dt>
+              <dd class="font-medium text-slate-800">{{ dateLabel(store.meta?.catalog_updated_at ?? '') }}</dd>
             </div>
             <div>
               <dt class="text-xs text-slate-400">Calculadoras</dt>

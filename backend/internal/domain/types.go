@@ -32,8 +32,28 @@ type Taxpayer struct {
 	CNAE             string `json:"cnae"`
 	FiscalYearEnd    string `json:"fiscal_year_end"`
 	IBAN             string `json:"iban"`
-	CreatedAt        string `json:"created_at"`
-	UpdatedAt        string `json:"updated_at"`
+
+	// RETA profile. Amounts are monthly bases and annual net-income forecasts
+	// expressed in cents. RetaBaseFrom is the first day the chosen base applies.
+	RetaBaseCents      int64  `json:"reta_base_cents"`
+	RetaBaseFrom       string `json:"reta_base_from"`
+	RetaNetIncomeCents int64  `json:"reta_net_income_cents"`
+	RetaNetIncomeYear  int    `json:"reta_net_income_year"`
+
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// RetaBaseChange is an effective-dated snapshot of the RETA contribution
+// profile. It lets the application explain which base applied at each moment.
+type RetaBaseChange struct {
+	ID             string `json:"id"`
+	TaxpayerID     string `json:"taxpayer_id"`
+	BaseCents      int64  `json:"base_cents"`
+	BaseFrom       string `json:"base_from"`
+	NetIncomeCents int64  `json:"net_income_cents"`
+	NetIncomeYear  int    `json:"net_income_year"`
+	CreatedAt      string `json:"created_at"`
 }
 
 // Filing is one concrete obligation instance for a taxpayer and period.

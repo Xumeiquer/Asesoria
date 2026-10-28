@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
           {{ busy === 'calculate' ? 'Calculando…' : 'Calcular' }}
         </button>
         <a v-if="model?.url" :href="model.url" target="_blank" rel="noreferrer" class="btn-accent">
-          <ExternalLink class="h-4 w-4" /> Abrir en AEAT
+          <ExternalLink class="h-4 w-4" /> Abrir en {{ model.entity }}
         </a>
       </template>
     </PageHeader>
@@ -261,11 +261,20 @@ onBeforeUnmount(() => {
     <div class="mb-5 flex flex-wrap items-center gap-3">
       <StatusBadge :status="filing.status" />
       <span class="chip bg-slate-100 text-slate-600">{{ filing.entity }}</span>
+      <span v-if="model && model.periodicity !== 'Puntual'" class="chip bg-slate-100 text-slate-600">
+        Periodicidad: {{ model.periodicity }}
+      </span>
       <span class="chip bg-slate-100 text-slate-600">{{ filing.period_label }}</span>
       <span class="chip bg-slate-100 text-slate-600">Vence {{ dateLabel(filing.due_date) }}</span>
       <span v-if="filing.presented_at" class="chip bg-emerald-50 text-emerald-700">
         Presentado {{ dateTimeLabel(filing.presented_at) }}
       </span>
+    </div>
+
+    <div v-if="model?.description" class="card card-pad mb-5">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Para qué sirve</h2>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600">{{ model.description }}</p>
+      <p class="mt-3 text-xs text-slate-400">Última actualización: {{ dateLabel(model.updated_at ?? '') }}</p>
     </div>
 
     <div
@@ -425,7 +434,7 @@ onBeforeUnmount(() => {
           <ol class="mt-3 space-y-2 text-sm text-slate-300">
             <li>1. Revisa facturas y documentos.</li>
             <li>2. Calcula el modelo.</li>
-            <li>3. Abre AEAT y firma con tu certificado.</li>
+            <li>3. Abre la sede electrónica y firma con tu certificado.</li>
             <li>4. Archiva el justificante.</li>
           </ol>
         </div>
