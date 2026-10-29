@@ -90,7 +90,7 @@
 
           <div class="list-head">
             <div>
-              <h2>Expedientes abiertos</h2>
+              <h2 id="list-title">Próximos vencimientos</h2>
               <p id="list-subtitle" class="list-subtitle">Cargando…</p>
             </div>
             <button id="refresh" class="icon-btn" type="button" title="Actualizar" aria-label="Actualizar expedientes">
@@ -98,6 +98,17 @@
                 <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                 <path d="M21 3v6h-6" />
               </svg>
+            </button>
+          </div>
+
+          <div class="view-switch" role="group" aria-label="Vista de expedientes">
+            <button id="view-upcoming" class="view-tab is-active" type="button" aria-pressed="true">
+              Próximos
+              <span id="upcoming-count" class="view-count">0</span>
+            </button>
+            <button id="view-all" class="view-tab" type="button" aria-pressed="false">
+              Todos
+              <span id="all-count" class="view-count">0</span>
             </button>
           </div>
 
@@ -111,7 +122,7 @@
 
           <p id="list-error" class="alert alert-error hidden" role="alert"></p>
 
-          <div id="filings" class="filings" role="list"></div>
+          <div id="filings" class="filings"></div>
 
           <div id="empty" class="empty hidden">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

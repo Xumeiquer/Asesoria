@@ -158,6 +158,7 @@ body.options {
 .icon-btn:focus-visible,
 .btn:focus-visible,
 .link-btn:focus-visible,
+.view-tab:focus-visible,
 .filing:focus-visible,
 .row-action:focus-visible {
   outline: 2px solid #34d399;
@@ -445,6 +446,105 @@ body.options {
   }
 }
 
+.view-switch {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.view-tab {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.view-tab:hover {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+
+.view-tab.is-active,
+.view-tab.is-active:hover {
+  background: var(--ink-strong);
+  color: #fff;
+}
+
+.view-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.view-tab.is-active .view-count {
+  background: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.month-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.month-group:last-child {
+  margin-bottom: 0;
+}
+
+.month-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 1px 0;
+}
+
+.month-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.month-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.month-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 .search-wrap {
   position: relative;
   margin-bottom: 10px;
@@ -468,7 +568,8 @@ body.options {
   background: var(--surface);
 }
 
-.filings {
+.filings,
+.filing-list {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -579,9 +680,24 @@ body.options {
   white-space: nowrap;
 }
 
-.due.is-late {
+.due.soon {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.due.late {
   color: var(--rose);
   font-weight: 600;
+}
+
+.due.done {
+  color: var(--muted);
+}
+
+.due-date {
+  font-size: 9.5px;
+  color: var(--muted-2);
+  white-space: nowrap;
 }
 
 .badge {
