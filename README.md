@@ -202,6 +202,7 @@ El código caduca en 10 minutos y solo puede usarse una vez. El token resultante
 
 ### Qué hace el popup
 
+- Muestra el **contribuyente** seleccionado, con nombre y NIF, y permite filtrar por él o ver todos.
 - Muestra los **próximos 8 vencimientos** desde hoy, agrupados por mes, con la fecha exacta y una cuenta atrás («Vence hoy», «Vence en X días»).
 - Permite cambiar a **Todos** para consultar el resto de expedientes abiertos, incluidos los vencidos, y buscar por modelo, periodo o NIF.
 - Al abrir un expediente, lo marca como activo para el panel de la sede.

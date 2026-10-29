@@ -46,6 +46,7 @@ const viewUpcomingBtn = el<HTMLButtonElement>('#view-upcoming')
 const viewAllBtn = el<HTMLButtonElement>('#view-all')
 const upcomingCount = el<HTMLElement>('#upcoming-count')
 const allCount = el<HTMLElement>('#all-count')
+const taxpayerSelect = el<HTMLSelectElement>('#taxpayer')
 const listError = el<HTMLElement>('#list-error')
 const filingsEl = el<HTMLElement>('#filings')
 const emptyEl = el<HTMLElement>('#empty')
@@ -66,11 +67,19 @@ const sedeIcon = `
 
 type ListView = 'upcoming' | 'all'
 
+interface TaxpayerOption {
+  id: string
+  name: string
+  nif: string
+}
+
 const UPCOMING_LIMIT = 8
 const OPEN_STATUSES = new Set(['pending', 'in_progress', 'ready'])
 
 let filings: ExtensionFiling[] = []
 let upcoming: ExtensionFiling[] = []
+let taxpayers: TaxpayerOption[] = []
+let taxpayerFilter = ''
 let view: ListView = 'upcoming'
 let filter = ''
 let currentState: ExtensionState = { paired: false, apiUrl: DEFAULT_API, tokenName: '' }
@@ -133,12 +142,12 @@ function filingMarkup(item: ExtensionFiling): string {
     ? `<button class="row-action" type="button" data-sede data-url="${escapeHtml(item.model_url)}" title="Abrir en la sede electrónica" aria-label="Abrir en la sede electrónica">${sedeIcon}</button>`
     : '<span class="row-action" aria-hidden="true"></span>'
   return `
-    <div class="filing" role="listitem" tabindex="0" data-id="${escapeHtml(filing.id)}" data-model="${escapeHtml(filing.model_code)}" aria-label="${escapeHtml(`${filing.model_code} ${filing.model_name}, ${filing.period_label}`)}">
+    <div class="filing" role="listitem" tabindex="0" data-id="${escapeHtml(filing.id)}" data-model="${escapeHtml(filing.model_code)}" aria-label="${escapeHtml(`${filing.model_code} ${filing.model_name}, ${filing.period_label}, ${item.taxpayer_name}`)}">
       <span class="model ${codeClass(filing.model_code)}" title="${escapeHtml(filing.model_code)}">${escapeHtml(filing.model_code)}</span>
       <span class="filing-body">
         <span class="filing-title">${escapeHtml(filing.model_name)}</span>
         <span class="filing-sub">
-          <span class="filing-sub-text">${escapeHtml(item.taxpayer_name)} · ${escapeHtml(filing.period_label)}</span>
+          <span class="filing-sub-text" title="${escapeHtml(`${item.taxpayer_name}${item.taxpayer_nif ? ` (${item.taxpayer_nif})` : ''}`)}">${escapeHtml(item.taxpayer_name)} · ${escapeHtml(filing.period_label)}</span>
           ${
             exercise
               ? `<span class="exercise" title="Periodo del ejercicio anterior, presentado después del cambio de ejercicio">${escapeHtml(exercise)}</span>`
@@ -202,9 +211,45 @@ function upcomingMarkup(items: ExtensionFiling[]): string {
     .join('')
 }
 
+function scopedFilings(): ExtensionFiling[] {
+  if (!taxpayerFilter) return filings
+  return filings.filter((item) => item.filing.taxpayer_id === taxpayerFilter)
+}
+
+function refreshTaxpayers() {
+  const byID = new Map<string, TaxpayerOption>()
+  for (const item of filings) {
+    const id = item.filing.taxpayer_id
+    if (!id || byID.has(id)) continue
+    byID.set(id, {
+      id,
+      name: item.taxpayer_name || 'Contribuyente sin nombre',
+      nif: item.taxpayer_nif,
+    })
+  }
+  taxpayers = [...byID.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'))
+
+  if (taxpayerFilter && !taxpayers.some((taxpayer) => taxpayer.id === taxpayerFilter)) {
+    taxpayerFilter = ''
+  }
+  // Con un único contribuyente no hace falta obligar a elegir «Todos».
+  if (!taxpayerFilter && taxpayers.length === 1) taxpayerFilter = taxpayers[0].id
+
+  taxpayerSelect.innerHTML = [
+    '<option value="">Todos los contribuyentes</option>',
+    ...taxpayers.map(
+      (taxpayer) =>
+        `<option value="${escapeHtml(taxpayer.id)}">${escapeHtml(taxpayer.name)}${
+          taxpayer.nif ? ` · ${escapeHtml(taxpayer.nif)}` : ''
+        }</option>`,
+    ),
+  ].join('')
+  taxpayerSelect.value = taxpayerFilter
+}
+
 function refreshUpcoming() {
   const today = todayISO()
-  upcoming = filings
+  upcoming = scopedFilings()
     .filter((item) => {
       const filing = item.filing
       return Boolean(filing.due_date) && filing.due_date >= today && OPEN_STATUSES.has(filing.status)
@@ -217,7 +262,7 @@ function refreshUpcoming() {
     .slice(0, UPCOMING_LIMIT)
 }
 
-function updateViewButtons() {
+function updateViewButtons(scopedCount: number) {
   const isUpcoming = view === 'upcoming'
   listTitle.textContent = isUpcoming ? 'Próximos vencimientos' : 'Expedientes abiertos'
   viewUpcomingBtn.classList.toggle('is-active', isUpcoming)
@@ -225,32 +270,38 @@ function updateViewButtons() {
   viewUpcomingBtn.setAttribute('aria-pressed', String(isUpcoming))
   viewAllBtn.setAttribute('aria-pressed', String(!isUpcoming))
   upcomingCount.textContent = String(upcoming.length)
-  allCount.textContent = String(filings.length)
+  allCount.textContent = String(scopedCount)
 }
 
 function renderFilings() {
-  const source = view === 'upcoming' ? upcoming : filings
+  const scoped = scopedFilings()
+  const source = view === 'upcoming' ? upcoming : scoped
   const visible = source.filter(matches)
   listError.classList.add('hidden')
-  updateViewButtons()
+  updateViewButtons(scoped.length)
 
   const time = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   if (!filings.length) {
     listSubtitle.textContent = 'Sin expedientes pendientes'
+  } else if (!scoped.length) {
+    listSubtitle.textContent = 'Sin expedientes para el contribuyente'
   } else if (view === 'upcoming') {
     listSubtitle.textContent = upcoming.length
       ? `${upcoming.length} vencimiento${upcoming.length === 1 ? '' : 's'} · actualizado ${time}`
       : 'Sin vencimientos próximos'
   } else {
-    listSubtitle.textContent = `${filings.length} expediente${filings.length === 1 ? '' : 's'} · actualizado ${time}`
+    listSubtitle.textContent = `${scoped.length} expediente${scoped.length === 1 ? '' : 's'} · actualizado ${time}`
   }
 
-  emptyText.textContent =
-    filings.length && filter
-      ? 'Ningún expediente coincide con la búsqueda.'
-      : view === 'upcoming'
-        ? 'No hay vencimientos próximos desde hoy. Cambia a «Todos» para ver los expedientes abiertos.'
-        : 'No hay expedientes abiertos. Crea o importa uno desde el ERP.'
+  emptyText.textContent = !filings.length
+    ? 'No hay expedientes abiertos. Crea o importa uno desde el ERP.'
+    : !scoped.length
+      ? 'El contribuyente seleccionado no tiene expedientes abiertos.'
+      : filter
+        ? 'Ningún expediente coincide con la búsqueda.'
+        : view === 'upcoming'
+          ? 'No hay vencimientos próximos desde hoy. Cambia a «Todos» para ver los expedientes abiertos.'
+          : 'No hay expedientes abiertos. Crea o importa uno desde el ERP.'
   show(emptyEl, visible.length === 0)
   show(filingsEl, visible.length > 0)
 
@@ -279,11 +330,14 @@ async function loadFilings() {
           a.filing.due_date.localeCompare(b.filing.due_date) ||
           a.filing.model_code.localeCompare(b.filing.model_code),
       )
+    refreshTaxpayers()
     refreshUpcoming()
     renderFilings()
   } catch (error) {
     filings = []
     upcoming = []
+    taxpayerFilter = ''
+    refreshTaxpayers()
     renderFilings()
     showError(listError, errorMessage(error))
   } finally {
@@ -364,6 +418,12 @@ searchInput.addEventListener('input', () => {
 viewUpcomingBtn.addEventListener('click', () => setView('upcoming'))
 viewAllBtn.addEventListener('click', () => setView('all'))
 
+taxpayerSelect.addEventListener('change', () => {
+  taxpayerFilter = taxpayerSelect.value
+  refreshUpcoming()
+  renderFilings()
+})
+
 refreshBtn.addEventListener('click', () => {
   void loadFilings()
 })
@@ -374,6 +434,8 @@ unpairBtn.addEventListener('click', async () => {
     await unpair()
     filings = []
     upcoming = []
+    taxpayerFilter = ''
+    refreshTaxpayers()
     filter = ''
     searchInput.value = ''
     const config = await getConfig()
