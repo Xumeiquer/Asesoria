@@ -1,7 +1,7 @@
 version: "2026.1"
 # Fecha de la última revisión del catálogo. Cada modelo puede sobrescribirla
 # con su propio campo updated_at si su ficha se revisa en otra fecha.
-updated_at: "2026-10-28"
+updated_at: "2026-10-29"
 # Catálogo de obligaciones. Es data, no código: se versiona por ejercicio.
 # auto: true  -> se genera automáticamente en el calendario del contribuyente.
 # auto: false -> aparece en el catálogo y puede añadirse a mano (trámites puntuales).
@@ -15,9 +15,9 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G322.shtml"
     auto: false
     documents:
-      - "DNI/NIE del titular o escritura de constitución"
-      - "Escritura de apoderamiento, si aplica"
-      - "Modelo 036 firmado"
+      - "Modelo 036 cumplimentado y firmado"
+      - "DNI/NIE del titular o escritura de constitución, si se solicita NIF"
+      - "Escritura de apoderamiento, si actúa un representante"
     notes: "Se presenta antes de iniciar la actividad o en el plazo de un mes desde el cambio."
 
   - code: "037"
@@ -50,10 +50,10 @@ models:
       due_months: [1, 4, 7, 10]
       due_day: 20
     documents:
-      - "Facturas emitidas del periodo"
-      - "Facturas recibidas y gastos deducibles"
-      - "Justificantes de importación y exportación"
-      - "Liquidaciones de IVA de otros Estados miembros"
+      - "Libro registro de facturas emitidas y recibidas"
+      - "Facturas y justificantes de gastos deducibles"
+      - "Documentos de importación, exportación y operaciones intracomunitarias"
+      - "Autoliquidaciones de IVA de otros Estados miembros, si aplica"
     notes: "Mensual para grandes empresas, grupos de IVA, REDEME y SII. Plazo: 1-20 del mes siguiente."
 
   - code: "390"
@@ -72,7 +72,7 @@ models:
       due_day: 31
       period_year_offset: -1
     documents:
-      - "Resúmenes trimestrales de IVA"
+      - "Modelos 303 del ejercicio"
       - "Libro registro de facturas emitidas y recibidas"
     notes: "Plazo: 1-31 de enero. Algunos sujetos están exonerados; revisa el supuesto."
 
@@ -93,10 +93,11 @@ models:
       due_months: [1, 4, 7, 10]
       due_day: 20
     documents:
-      - "Facturas emitidas del periodo"
-      - "Facturas recibidas y gastos deducibles"
+      - "Libro registro de ingresos y gastos"
+      - "Facturas emitidas y recibidas"
       - "Nóminas y seguros sociales"
       - "Retenciones soportadas o practicadas"
+      - "Amortizaciones"
     notes: "20% del rendimiento neto acumulado, menos retenciones y pagos previos."
 
   - code: "131"
@@ -116,8 +117,9 @@ models:
       due_months: [1, 4, 7, 10]
       due_day: 20
     documents:
-      - "Datos de módulos del periodo"
-      - "Facturas emitidas y recibidas"
+      - "Datos de módulos: índices, módulos y coeficientes"
+      - "Libro registro de facturas emitidas y recibidas"
+      - "Justificantes de gastos, si aplica"
     notes: "Sujeto a los módulos y coeficientes del ejercicio."
 
   - code: "111"
@@ -135,9 +137,9 @@ models:
       due_months: [1, 4, 7, 10]
       due_day: 20
     documents:
-      - "Nóminas del periodo"
+      - "Nóminas y relación de perceptores"
       - "Facturas de profesionales con retención"
-      - "Recibos de retención"
+      - "Justificantes de las retenciones practicadas"
     notes: "Mensual para grandes empresas y obligados al SII."
 
   - code: "190"
@@ -178,7 +180,7 @@ models:
     documents:
       - "Contratos de arrendamiento"
       - "Facturas o recibos de alquiler"
-      - "Recibos de retención"
+      - "Justificantes de las retenciones practicadas"
     notes: "Mensual para grandes empresas y obligados al SII."
 
   - code: "180"
@@ -215,7 +217,7 @@ models:
       due_day: 20
     documents:
       - "Certificados de intereses y dividendos"
-      - "Recibos de retención"
+      - "Justificantes de las retenciones practicadas"
     notes: "Solo si la sociedad o el autónomo practica este tipo de retenciones."
 
   - code: "193"
@@ -286,8 +288,10 @@ models:
     documents:
       - "Facturas intracomunitarias"
       - "NIF-IVA de los clientes/proveedores"
-      - "Consulta VIES"
-    notes: "Mensual si se superan los umbrales o se está en SII."
+      - "Libro registro de facturas emitidas y recibidas"
+      - "Libro registro de operaciones intracomunitarias"
+      - "Justificantes de transporte o entrega, si aplica"
+    notes: "Verifica los NIF-IVA en VIES antes de presentar. Mensual si se superan los umbrales o se está en SII."
 
   - code: "347"
     name: "Operaciones con terceras personas"
@@ -306,7 +310,8 @@ models:
       period_year_offset: -1
     documents:
       - "Facturas emitidas y recibidas del ejercicio"
-      - "Datos de clientes y proveedores"
+      - "Resumen anual por cliente y proveedor"
+      - "Datos fiscales de clientes y proveedores"
     notes: "Plazo: 1-28 de febrero (29 en año bisiesto)."
 
   - code: "200"
@@ -328,6 +333,7 @@ models:
       - "Cuentas anuales y balance"
       - "Cuenta de pérdidas y ganancias"
       - "Ajustes fiscales y amortizaciones"
+      - "Deducciones y bonificaciones"
       - "Pagos fraccionados (modelo 202)"
     notes: "Plazo: 25 días naturales tras los 6 meses del cierre. Si el cierre no es 31/12, ajusta la fecha."
 
@@ -382,7 +388,9 @@ models:
       period_year_offset: -1
     documents:
       - "Certificados de retenciones"
-      - "Facturas y gastos del ejercicio"
+      - "Libro registro de ingresos y gastos"
+      - "Facturas y justificantes de gastos"
+      - "Amortizaciones"
       - "Datos de seguros, vivienda y familia"
       - "Pagos fraccionados (130/131)"
     notes: "Plazo: 1 de abril a 30 de junio."
@@ -454,7 +462,8 @@ models:
       economic_activity: true
     documents:
       - "Modelo 840"
-      - "Datos de la actividad y del local"
+      - "Datos de la actividad: epígrafe IAE, CNAE y fecha de inicio"
+      - "Datos del local: dirección y superficie"
     notes: "No aplica a autónomos exentos por facturación o inicio de actividad en los términos legales."
 
   - code: "184"
@@ -502,8 +511,9 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/declaraciones-informativas-otros-impuestos-tasas/impuesto-sobre-transmisiones-patrimoniales-actos-juridicos/itp-ajd-transmisiones-derechos-reales-fianzas/descarga-modelo-600.html"
     auto: false
     documents:
-      - "Escritura o contrato"
-      - "Justificante del pago"
+      - "Escritura, contrato o documento notarial"
+      - "Valoración de los bienes, si la base imponible no consta en el documento"
+      - "Justificante de pago, si ya se ha autoliquidado"
     notes: "Gestión transferida a las comunidades autónomas; el modelo y plazo varían."
 
   - code: "650"
@@ -516,8 +526,9 @@ models:
     auto: false
     documents:
       - "Certificado de defunción"
-      - "Testamento y escrituras"
-      - "Inventario de bienes"
+      - "Testamento, declaración de herederos o certificado de últimas voluntades"
+      - "Inventario y valoración de bienes"
+      - "Justificante de pago, si ya se ha autoliquidado"
     notes: "Plazo de 6 meses desde el fallecimiento, prorrogable. Gestión autonómica."
 
   - code: "651"
@@ -529,25 +540,31 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G703.shtml"
     auto: false
     documents:
-      - "Escritura de donación"
-      - "Valoración de los bienes"
+      - "Escritura o documento notarial de donación"
+      - "Valoración de los bienes donados"
+      - "Justificante de pago, si ya se ha autoliquidado"
     notes: "Plazo de 30 días hábiles. Gestión autonómica."
 
   - code: "RETA-ALTA"
-    name: "Alta, baja o cambio de datos en RETA"
+    name: "Alta en el RETA"
     entity: TGSS
     category: "Cotización"
     periodicity: "Puntual"
-    description: "Sirve para darse de alta, cambiar datos o darse de baja como autónomo en el Régimen Especial de Trabajadores Autónomos (RETA)."
+    description: "Sirve para darse de alta como autónomo en el Régimen Especial de Trabajadores Autónomos (RETA) antes de iniciar la actividad."
     url: "https://portal.seg-social.gob.es/wps/portal/importass/importass/Categorias/Altas%2C+bajas+y+modificaciones/Altas+y+afiliacion+de+trabajadores/Alta_trabajo_autonomo"
     auto: false
     applies:
       legal_forms: ["autonomo"]
     documents:
-      - "DNI/NIE"
-      - "Modelo 036/037 o alta censal"
-      - "Datos bancarios"
-    notes: "Alta antes de iniciar la actividad; baja en los días siguientes al cese."
+      - "DNI/NIE o identificación electrónica"
+      - "Código IAE y administración tributaria"
+      - "Código CNAE"
+      - "Fecha de inicio y domicilio de la actividad"
+      - "Estimación de rendimientos netos anuales"
+      - "Base de cotización y beneficios aplicables"
+      - "Mutua colaboradora y coberturas"
+      - "Cuenta bancaria y autorización del titular, si no es el titular"
+    notes: "Alta antes de iniciar la actividad, con un máximo de 60 días de antelación. Para bajas y cambios de datos, usa el trámite específico de la TGSS."
 
   - code: "CCC-RNT"
     name: "Alta de empresa y cuenta de cotización (CCC/RNT)"
@@ -560,11 +577,11 @@ models:
     applies:
       has_employees: true
     documents:
-      - "Escritura de constitución"
-      - "NIF de la empresa"
-      - "Datos del representante legal"
-      - "Alta de los trabajadores"
-    notes: "Previo al alta de los trabajadores."
+      - "Formulario TA.6 (inscripción de empresa)"
+      - "Formulario TA.7 (cuenta de cotización provincial), si aplica"
+      - "NIF de la empresa y datos del representante legal"
+      - "Escritura de constitución o documentación acreditativa, si se solicita"
+    notes: "La inscripción se solicita con el formulario TA.6; el TA.7 se usa para cada cuenta de cotización provincial. Es previa al alta de los trabajadores."
 
   - code: "TC1"
     name: "Recibo de liquidación de cotizaciones (TC1/RLC)"
@@ -651,14 +668,16 @@ models:
     documents:
       - "Datos del trabajador"
       - "Historial de cotización"
+      - "Causa y fecha de baja, si aplica"
+    notes: "Lo emite la empresa para que el trabajador pueda solicitar prestaciones."
 
   - code: "RM-CUENTAS"
     name: "Formulación de cuentas anuales"
     entity: Registro Mercantil
     category: "Contabilidad"
     periodicity: "Anual"
-    description: "Sirve para que los administradores formulen las cuentas anuales de la sociedad (balance, cuenta de resultados, memoria...) al cierre del ejercicio."
-    url: "https://www.registradores.org/el-colegio/registro-mercantil"
+    description: "Sirve para que los administradores formulen las cuentas anuales de la sociedad (balance, cuenta de pérdidas y ganancias, memoria...), el informe de gestión y la propuesta de aplicación del resultado al cierre del ejercicio."
+    url: "https://www.boe.es/buscar/act.php?id=BOE-A-2010-10544#a253"
     auto: true
     applies:
       legal_forms: ["sl"]
@@ -670,16 +689,19 @@ models:
     documents:
       - "Balance"
       - "Cuenta de pérdidas y ganancias"
+      - "Estado de cambios en el patrimonio neto, si aplica"
+      - "Estado de flujos de efectivo, si aplica"
       - "Memoria"
-      - "Estado de cambios en el patrimonio neto"
-    notes: "Dentro de los 3 meses siguientes al cierre del ejercicio. La formulación y aprobación son actos internos; el depósito posterior se tramita con RM-DEPOSITO."
+      - "Informe de gestión, si aplica"
+      - "Propuesta de aplicación del resultado"
+    notes: "Dentro de los 3 meses siguientes al cierre del ejercicio. La formulación corresponde a los administradores y la aprobación a la junta; el depósito posterior se tramita con RM-DEPOSITO. Ley de Sociedades de Capital, arts. 253 y 254."
 
   - code: "RM-LEGALIZACION"
     name: "Legalización de libros contables"
     entity: Registro Mercantil
     category: "Contabilidad"
     periodicity: "Anual"
-    description: "Sirve para legalizar en el Registro Mercantil los libros contables y societarios, como el libro diario, el de inventarios o el de actas."
+    description: "Sirve para legalizar en el Registro Mercantil los libros contables y societarios, como el libro diario, el de inventarios, el de actas o el libro registro de socios."
     url: "https://www.registradores.org/navegacion-por-categorias/-/asset_publisher/eXXttUcwzL5U/content/legalizacio-n-de-libros"
     auto: true
     applies:
@@ -693,7 +715,10 @@ models:
       - "Libro diario"
       - "Libro de inventarios y cuentas anuales"
       - "Libro de actas"
-    notes: "Dentro de los 4 meses siguientes al cierre del ejercicio."
+      - "Libro registro de socios"
+      - "Libro de contratos con el socio único, si aplica"
+      - "Certificado de cierre de libros"
+    notes: "Dentro de los 4 meses siguientes al cierre del ejercicio. La sociedad limitada debe legalizar también el libro registro de socios y, si es unipersonal, el libro de contratos con el socio único."
 
   - code: "RM-DEPOSITO"
     name: "Depósito de cuentas anuales"
@@ -712,7 +737,8 @@ models:
       period_year_offset: -1
     documents:
       - "Cuentas anuales aprobadas"
-      - "Certificado del acuerdo de aprobación"
+      - "Certificación de los acuerdos de aprobación de las cuentas y de aplicación del resultado"
       - "Informe de gestión, si aplica"
       - "Informe del auditor, si aplica"
-    notes: "Dentro del mes siguiente a la aprobación y, como máximo, el 30 de julio."
+      - "Declaración de titular real"
+    notes: "Dentro del mes siguiente a la aprobación y, como máximo, el 30 de julio. La declaración de titular real se exige conforme a la Orden JUS/319/2018."

@@ -15,6 +15,7 @@ const models = ref<Model[]>([])
 const catalogVersion = ref('')
 const catalogUpdatedAt = ref('')
 const loading = ref(true)
+const error = ref('')
 const search = ref('')
 const category = ref('')
 const selected = ref<Model | null>(null)
@@ -33,6 +34,7 @@ const applicableCount = computed(() => models.value.filter((m) => m.applicable &
 
 async function load() {
   loading.value = true
+  error.value = ''
   try {
     const params = new URLSearchParams()
     if (store.selectedId) params.set('taxpayer_id', store.selectedId)
@@ -40,8 +42,9 @@ async function load() {
     catalogVersion.value = data.version
     catalogUpdatedAt.value = data.updated_at
     models.value = data.models
-  } catch (error) {
-    toasts.error(error instanceof Error ? error.message : 'No se pudo cargar el catálogo')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'No se pudo cargar el catálogo'
+    toasts.error(error.value)
   } finally {
     loading.value = false
   }
@@ -78,12 +81,23 @@ onMounted(load)
       </template>
     </PageHeader>
 
+    <div v-if="error" class="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      <XCircle class="h-4 w-4 shrink-0" />
+      <span class="min-w-0 flex-1">{{ error }}</span>
+      <button class="btn-ghost" @click="load">Reintentar</button>
+    </div>
+
     <div class="mb-5 flex flex-col gap-3 sm:flex-row">
       <div class="relative flex-1">
         <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input v-model="search" class="input pl-9" placeholder="Buscar por modelo, nombre o entidad…" />
+        <input
+          v-model="search"
+          class="input pl-9"
+          placeholder="Buscar por modelo, nombre o entidad…"
+          aria-label="Buscar modelos"
+        />
       </div>
-      <select v-model="category" class="input sm:w-56">
+      <select v-model="category" class="input sm:w-56" aria-label="Filtrar por categoría">
         <option value="">Todas las categorías</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
       </select>
@@ -101,16 +115,16 @@ onMounted(load)
       <template #icon><FileText class="h-6 w-6" /></template>
     </EmptyState>
 
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       <button
         v-for="model in filtered"
         :key="model.code"
-        class="card group flex h-full flex-col p-5 text-left transition hover:border-slate-300 hover:shadow-md"
+        class="card group flex h-full min-w-0 flex-col p-5 text-left transition hover:border-slate-300 hover:shadow-md"
         :class="{ 'opacity-60': !model.applicable }"
         @click="openDetail(model)"
       >
         <div class="flex items-start justify-between gap-3">
-          <div class="flex items-center gap-3">
+          <div class="flex min-w-0 items-center gap-3">
             <span class="grid h-11 min-w-11 place-items-center rounded-xl bg-slate-900 px-2 text-sm font-bold text-white">
               {{ model.code }}
             </span>

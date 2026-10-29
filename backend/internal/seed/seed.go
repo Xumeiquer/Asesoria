@@ -30,7 +30,8 @@ func Demo(ctx context.Context, st *store.Store, cat *catalog.Catalog) error {
 		{
 			NIF: "12345678Z", Name: "Lucía Demo", LegalForm: domain.LegalFormAutonomo,
 			Email: "lucia@example.test", VATRegime: "general", IRPFMethod: "directa",
-			EconomicActivity: true, CNAE: "7022", FiscalYearEnd: "12-31",
+			EconomicActivity: true, CNAEs: []string{"7022"}, FiscalYearEnd: "12-31",
+			ActivityStart: fmt.Sprintf("%d-01-01", now.Year()),
 			RetaBaseCents: 120000, RetaBaseFrom: fmt.Sprintf("%d-01-01", now.Year()),
 			RetaNetIncomeCents: 1800000, RetaNetIncomeYear: now.Year(),
 		},
@@ -38,7 +39,8 @@ func Demo(ctx context.Context, st *store.Store, cat *catalog.Catalog) error {
 			NIF: "B12345678", Name: "Estudio Demo SL", LegalForm: domain.LegalFormSL,
 			Email: "admin@estudiodemo.test", VATRegime: "general", IRPFMethod: "directa",
 			HasEmployees: true, HasRentals: true, EconomicActivity: true,
-			CNAE: "6201", FiscalYearEnd: "12-31",
+			CNAEs: []string{"6201"}, FiscalYearEnd: "12-31",
+			ActivityStart: fmt.Sprintf("%d-01-01", now.Year()),
 		},
 	}
 	for i := range taxpayers {

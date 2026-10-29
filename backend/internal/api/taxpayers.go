@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,19 +15,21 @@ import (
 )
 
 type taxpayerInput struct {
-	NIF              string `json:"nif"`
-	Name             string `json:"name"`
-	LegalForm        string `json:"legal_form"`
-	Email            string `json:"email"`
-	Phone            string `json:"phone"`
-	VATRegime        string `json:"vat_regime"`
-	IRPFMethod       string `json:"irpf_method"`
-	HasEmployees     bool   `json:"has_employees"`
-	HasRentals       bool   `json:"has_rentals"`
-	EconomicActivity *bool  `json:"economic_activity"`
-	CNAE             string `json:"cnae"`
-	FiscalYearEnd    string `json:"fiscal_year_end"`
-	IBAN             string `json:"iban"`
+	NIF              string   `json:"nif"`
+	Name             string   `json:"name"`
+	LegalForm        string   `json:"legal_form"`
+	Email            string   `json:"email"`
+	Phone            string   `json:"phone"`
+	VATRegime        string   `json:"vat_regime"`
+	IRPFMethod       string   `json:"irpf_method"`
+	HasEmployees     bool     `json:"has_employees"`
+	HasRentals       bool     `json:"has_rentals"`
+	EconomicActivity *bool    `json:"economic_activity"`
+	CNAEs            []string `json:"cnaes"`
+	CNAE             string   `json:"cnae"` // legacy single-code clients
+	FiscalYearEnd    string   `json:"fiscal_year_end"`
+	IBAN             string   `json:"iban"`
+	ActivityStart    string   `json:"activity_start"`
 
 	RetaBaseCents      int64  `json:"reta_base_cents"`
 	RetaBaseFrom       string `json:"reta_base_from"`
@@ -83,6 +86,17 @@ func retaProfileChanged(before, after domain.Taxpayer) bool {
 		before.RetaNetIncomeYear != after.RetaNetIncomeYear
 }
 
+func taxpayerProfileChanged(before, after domain.Taxpayer) bool {
+	return before.LegalForm != after.LegalForm ||
+		before.VATRegime != after.VATRegime ||
+		before.IRPFMethod != after.IRPFMethod ||
+		before.HasEmployees != after.HasEmployees ||
+		before.HasRentals != after.HasRentals ||
+		before.EconomicActivity != after.EconomicActivity ||
+		before.FiscalYearEnd != after.FiscalYearEnd ||
+		before.ActivityStart != after.ActivityStart
+}
+
 func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	var in taxpayerInput
 	if err := decodeJSON(r, &in); err != nil {
@@ -93,6 +107,9 @@ func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	if msg != "" {
 		writeError(w, http.StatusBadRequest, msg)
 		return
+	}
+	if t.ActivityStart == "" {
+		t.ActivityStart = time.Now().Format("2006-01-02")
 	}
 	if err := s.Store.CreateTaxpayer(r.Context(), &t); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -139,6 +156,9 @@ func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	}
 	updated.ID = id
 	updated.CreatedAt = existing.CreatedAt
+	if updated.ActivityStart == "" {
+		updated.ActivityStart = existing.ActivityStart
+	}
 	if err := s.Store.UpdateTaxpayer(r.Context(), &updated); err != nil {
 		handleStoreError(w, err)
 		return
@@ -148,11 +168,22 @@ func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
 			s.Store.Log(r.Context(), actor(r), "reta_history_warning", "taxpayer", id, map[string]any{"error": err.Error()})
 		}
 	}
+	generated := 0
+	if taxpayerProfileChanged(existing, updated) {
+		for _, year := range []int{currentYear(), currentYear() + 1} {
+			n, err := s.Store.UpsertFilings(r.Context(), s.Calendar.Generate(updated, year))
+			if err != nil {
+				s.Store.Log(r.Context(), actor(r), "calendar_sync_warning", "taxpayer", id, map[string]any{"error": err.Error()})
+				break
+			}
+			generated += n
+		}
+	}
 	if warning := s.ensureTaxpayerLibrary(r.Context(), updated); warning != "" {
 		s.Store.Log(r.Context(), actor(r), "library_tree_warning", "taxpayer", id, map[string]any{"error": warning})
 	}
-	s.Store.Log(r.Context(), actor(r), "update", "taxpayer", id, nil)
-	writeJSON(w, http.StatusOK, updated)
+	s.Store.Log(r.Context(), actor(r), "update", "taxpayer", id, map[string]any{"generated_filings": generated})
+	writeJSON(w, http.StatusOK, map[string]any{"taxpayer": updated, "generated_filings": generated})
 }
 
 func (s *Server) handleDeleteTaxpayer(w http.ResponseWriter, r *http.Request) {
@@ -184,7 +215,7 @@ func (s *Server) ensureTaxpayerLibrary(ctx context.Context, t domain.Taxpayer) s
 
 func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	t := domain.Taxpayer{
-		NIF:              strings.ToUpper(strings.TrimSpace(in.NIF)),
+		NIF:              normalizeNIF(in.NIF),
 		Name:             strings.TrimSpace(in.Name),
 		LegalForm:        in.LegalForm,
 		Email:            strings.TrimSpace(in.Email),
@@ -194,9 +225,10 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 		HasEmployees:     in.HasEmployees,
 		HasRentals:       in.HasRentals,
 		EconomicActivity: true,
-		CNAE:             strings.TrimSpace(in.CNAE),
-		FiscalYearEnd:    in.FiscalYearEnd,
-		IBAN:             strings.TrimSpace(in.IBAN),
+		CNAEs:            normalizeCNAEs(append(in.CNAEs, in.CNAE)),
+		FiscalYearEnd:    strings.TrimSpace(in.FiscalYearEnd),
+		IBAN:             normalizeIBAN(in.IBAN),
+		ActivityStart:    strings.TrimSpace(in.ActivityStart),
 
 		RetaBaseCents:      in.RetaBaseCents,
 		RetaBaseFrom:       strings.TrimSpace(in.RetaBaseFrom),
@@ -215,8 +247,22 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	if t.NIF == "" {
 		return t, "el NIF es obligatorio"
 	}
+	if !nifPattern.MatchString(t.NIF) {
+		return t, "el NIF no tiene un formato válido (ej. 12345678Z o B12345678)"
+	}
 	if t.Name == "" {
 		return t, "el nombre es obligatorio"
+	}
+	if msg := validateCNAEs(t.CNAEs); msg != "" {
+		return t, msg
+	}
+	if t.ActivityStart != "" {
+		if _, err := time.Parse("2006-01-02", t.ActivityStart); err != nil {
+			return t, "la fecha de inicio de actividad debe tener formato AAAA-MM-DD"
+		}
+	}
+	if t.IBAN != "" && !validIBAN(t.IBAN) {
+		return t, "el IBAN no es válido"
 	}
 	if t.LegalForm == domain.LegalFormSL {
 		t.EconomicActivity = true
@@ -242,10 +288,76 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	if t.FiscalYearEnd == "" {
 		t.FiscalYearEnd = "12-31"
 	}
+	if !fiscalYearEndPattern.MatchString(t.FiscalYearEnd) {
+		return t, "el cierre fiscal debe tener formato MM-DD"
+	}
+	if _, err := time.Parse("01-02", t.FiscalYearEnd); err != nil {
+		return t, "el cierre fiscal no es una fecha válida"
+	}
 	if msg := validateRetaProfile(&t); msg != "" {
 		return t, msg
 	}
 	return t, ""
+}
+
+var (
+	nifPattern           = regexp.MustCompile(`^(?:\d{8}[A-Z]|[XYZ]\d{7}[A-Z]|[A-Z]\d{7}[A-Z0-9])$`)
+	ibanPattern          = regexp.MustCompile(`^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$`)
+	cnaePattern          = regexp.MustCompile(`^\d{4}$`)
+	fiscalYearEndPattern = regexp.MustCompile(`^(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$`)
+)
+
+func normalizeCNAEs(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		code := strings.ToUpper(strings.TrimSpace(raw))
+		if code == "" {
+			continue
+		}
+		if _, ok := seen[code]; ok {
+			continue
+		}
+		seen[code] = struct{}{}
+		out = append(out, code)
+	}
+	return out
+}
+
+func validateCNAEs(values []string) string {
+	for _, code := range values {
+		if !cnaePattern.MatchString(code) {
+			return "cada CNAE debe tener 4 dígitos"
+		}
+	}
+	return ""
+}
+
+func normalizeNIF(raw string) string {
+	return strings.ToUpper(strings.NewReplacer(" ", "", "-", "", ".", "").Replace(strings.TrimSpace(raw)))
+}
+
+func normalizeIBAN(raw string) string {
+	return strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(raw), " ", ""))
+}
+
+func validIBAN(iban string) bool {
+	if !ibanPattern.MatchString(iban) {
+		return false
+	}
+	rearranged := iban[4:] + iban[:4]
+	rem := 0
+	for _, r := range rearranged {
+		switch {
+		case r >= '0' && r <= '9':
+			rem = (rem*10 + int(r-'0')) % 97
+		case r >= 'A' && r <= 'Z':
+			rem = (rem*100 + int(r-'A') + 10) % 97
+		default:
+			return false
+		}
+	}
+	return rem == 1
 }
 
 func validateRetaProfile(t *domain.Taxpayer) string {

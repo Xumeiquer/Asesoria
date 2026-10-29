@@ -157,7 +157,15 @@ func (s *Server) handleDownloadDocument(w http.ResponseWriter, r *http.Request) 
 	}
 	defer f.Close()
 	w.Header().Set("Content-Type", doc.MIME)
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+sanitizeHeaderFilename(doc.Filename)+"\"")
+	disposition := "attachment"
+	if r.URL.Query().Get("inline") == "1" {
+		disposition = "inline"
+		// The global policy blocks framing. A same-origin, authenticated preview
+		// is the only place where the document needs to be embedded.
+		w.Header().Del("X-Frame-Options")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
+	}
+	w.Header().Set("Content-Disposition", disposition+"; filename=\""+sanitizeHeaderFilename(doc.Filename)+"\"")
 	http.ServeContent(w, r, doc.Filename, parseTimeOrZero(doc.CreatedAt), f)
 }
 

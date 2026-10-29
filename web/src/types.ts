@@ -13,9 +13,10 @@ export interface Taxpayer {
   has_employees: boolean
   has_rentals: boolean
   economic_activity: boolean
-  cnae: string
+  cnaes: string[]
   fiscal_year_end: string
   iban: string
+  activity_start: string
   reta_base_cents: number
   reta_base_from: string
   reta_net_income_cents: number
@@ -187,11 +188,19 @@ export interface Dashboard {
   due_soon: number
   overdue: number
   presented: number
+  presented_with_receipt: number
+  presented_without_receipt: number
   pending: number
   documents: number
   invoices: number
   upcoming: Filing[]
   by_entity: Record<string, number>
+}
+
+export interface TaxpayerMutationResult {
+  taxpayer: Taxpayer
+  generated_filings: number
+  library_warning?: string
 }
 
 export interface AppMeta {

@@ -9,7 +9,7 @@
     @apply h-full antialiased;
   }
   body {
-    @apply min-h-full bg-slate-100 font-sans text-slate-800;
+    @apply min-h-full bg-slate-100 font-sans text-slate-800 overflow-x-clip;
   }
   ::selection {
     @apply bg-emerald-200 text-emerald-950;
@@ -18,7 +18,7 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm;
+    @apply relative rounded-2xl border border-slate-200/80 bg-white shadow-sm;
   }
   .card-pad {
     @apply p-5 sm:p-6;

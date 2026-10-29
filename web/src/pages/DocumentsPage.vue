@@ -12,10 +12,12 @@ import {
   Search,
   Trash2,
   Upload,
+  X,
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import Modal from '@/components/Modal.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, bytes, dateLabel, euros } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
@@ -31,11 +33,12 @@ const kindFilter = ref('')
 const reviewFilter = ref(false)
 const library = ref<LibraryConfig | null>(null)
 const scanning = ref(false)
+const dragOver = ref(false)
 
 const fileInput = ref<HTMLInputElement | null>(null)
-const selectedFile = ref<File | null>(null)
+const selectedFiles = ref<File[]>([])
 const kind = ref('factura_recibida')
-const docDate = ref(new Date().toISOString().slice(0, 10))
+const docDate = ref(localISODate())
 const amount = ref('')
 const counterparty = ref('')
 
@@ -51,6 +54,9 @@ const reviewForm = ref({
   counterparty_nif: '',
 })
 
+const confirmDoc = ref<DocumentItem | null>(null)
+const deleting = ref(false)
+
 const kinds = [
   { value: 'factura_emitida', label: 'Factura emitida' },
   { value: 'factura_recibida', label: 'Factura recibida' },
@@ -64,6 +70,12 @@ const kinds = [
   { value: 'banco', label: 'Banco' },
   { value: 'other', label: 'Otro' },
 ]
+
+function localISODate(date = new Date()): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
 
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -79,10 +91,25 @@ const filtered = computed(() => {
 
 const reviewCount = computed(() => documents.value.filter((doc) => doc.review_status === 'review').length)
 const totalSize = computed(() => documents.value.reduce((sum, doc) => sum + doc.size, 0))
+const hasFilters = computed(() => Boolean(search.value.trim() || kindFilter.value || reviewFilter.value))
 const reviewReasons = computed(() => {
-  const reasons = reviewDoc.value?.metadata?.reasons
-  return Array.isArray(reasons) ? reasons.filter((item): item is string => typeof item === 'string') : []
+  const raw = reviewDoc.value?.metadata?.review_reasons ?? reviewDoc.value?.metadata?.reasons
+  return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
 })
+
+function reasonLabel(reason: string): string {
+  const labels: Record<string, string> = {
+    fecha: 'Fecha detectada automáticamente',
+    importe: 'Importe detectado automáticamente',
+    nif: 'NIF de la contraparte detectado automáticamente',
+    tipo: 'Tipo de documento inferido automáticamente',
+    date: 'Fecha detectada automáticamente',
+    amount: 'Importe detectado automáticamente',
+    counterparty_nif: 'NIF de la contraparte detectado automáticamente',
+    kind: 'Tipo de documento inferido automáticamente',
+  }
+  return labels[reason] ?? reason
+}
 
 async function load() {
   loading.value = true
@@ -120,7 +147,7 @@ async function scanLibrary() {
   scanning.value = true
   try {
     const res = await api.post<ScanResult>('/library/scan', { taxpayer_id: store.selectedId || '' })
-    const extra = res.truncated ? ` Se alcanzó el límite de 1000 ficheros; vuelve a escanear.` : ''
+    const extra = res.truncated ? ' Se alcanzó el límite de 1000 ficheros; vuelve a escanear.' : ''
     toasts.success(
       `Escaneo terminado: ${res.imported} importados, ${res.duplicates} duplicados, ${res.needs_review} por revisar.${extra}`,
     )
@@ -195,10 +222,17 @@ function pickFile() {
 
 function onFileChange(event: Event) {
   const target = event.target as HTMLInputElement
-  selectedFile.value = target.files?.[0] ?? null
-  if (selectedFile.value && !amount.value) {
-    amount.value = ''
-  }
+  selectedFiles.value = Array.from(target.files ?? [])
+}
+
+function onDrop(event: DragEvent) {
+  dragOver.value = false
+  selectedFiles.value = Array.from(event.dataTransfer?.files ?? [])
+}
+
+function removeSelectedFile(index: number) {
+  selectedFiles.value = selectedFiles.value.filter((_, i) => i !== index)
+  if (!selectedFiles.value.length && fileInput.value) fileInput.value.value = ''
 }
 
 async function upload() {
@@ -206,46 +240,98 @@ async function upload() {
     toasts.error('Selecciona un contribuyente antes de subir documentos')
     return
   }
-  if (!selectedFile.value) {
-    toasts.error('Selecciona un fichero')
+  if (!selectedFiles.value.length) {
+    toasts.error('Selecciona al menos un fichero')
     return
   }
   uploading.value = true
+  let uploaded = 0
+  let reviewTarget: DocumentItem | null = null
+  let failed = 0
+  const failedFiles: File[] = []
   try {
-    const form = new FormData()
-    form.set('file', selectedFile.value)
-    form.set('taxpayer_id', store.selectedId)
-    form.set('kind', kind.value)
-    if (docDate.value) form.set('doc_date', docDate.value)
-    if (amount.value) form.set('amount', amount.value)
-    if (counterparty.value) form.set('counterparty_nif', counterparty.value)
-    await api.upload<DocumentItem>('/documents', form)
-    toasts.success('Documento subido y archivado')
-    selectedFile.value = null
+    for (const file of selectedFiles.value) {
+      const form = new FormData()
+      form.set('file', file)
+      form.set('taxpayer_id', store.selectedId)
+      form.set('kind', kind.value)
+      if (docDate.value) form.set('doc_date', docDate.value)
+      if (amount.value) form.set('amount', amount.value)
+      if (counterparty.value) form.set('counterparty_nif', counterparty.value)
+      try {
+        const doc = await api.upload<DocumentItem>('/documents', form)
+        uploaded++
+        if (!reviewTarget && doc.review_status === 'review') reviewTarget = doc
+      } catch (error) {
+        failed++
+        failedFiles.push(file)
+        if (failed === 1) {
+          toasts.error(error instanceof Error ? error.message : `No se pudo subir ${file.name}`)
+        }
+      }
+    }
+    if (uploaded) {
+      toasts.success(`${uploaded} documento${uploaded === 1 ? '' : 's'} subido${uploaded === 1 ? '' : 's'}`)
+    }
+    // Conserva solo los que fallaron para que el usuario pueda reintentarlos.
+    selectedFiles.value = failedFiles
     amount.value = ''
     counterparty.value = ''
     if (fileInput.value) fileInput.value.value = ''
     await load()
-  } catch (error) {
-    toasts.error(error instanceof Error ? error.message : 'No se pudo subir el documento')
+    if (reviewTarget) openReview(reviewTarget)
   } finally {
     uploading.value = false
   }
 }
 
-async function remove(doc: DocumentItem) {
-  if (!window.confirm(`¿Eliminar "${doc.filename}"? Esta acción no se puede deshacer.`)) return
+function remove(doc: DocumentItem) {
+  confirmDoc.value = doc
+}
+
+async function confirmDelete() {
+  if (!confirmDoc.value) return
+  deleting.value = true
   try {
-    await api.del(`/documents/${doc.id}`)
+    await api.del(`/documents/${confirmDoc.value.id}`)
     toasts.success('Documento eliminado')
+    confirmDoc.value = null
     await load()
   } catch (error) {
     toasts.error(error instanceof Error ? error.message : 'No se pudo eliminar')
+  } finally {
+    deleting.value = false
   }
+}
+
+function onDeleteDialogUpdate(open: boolean) {
+  if (!open && !deleting.value) confirmDoc.value = null
+}
+
+function clearFilters() {
+  search.value = ''
+  kindFilter.value = ''
+  reviewFilter.value = false
 }
 
 function kindLabel(value: string): string {
   return kinds.find((item) => item.value === value)?.label ?? value
+}
+
+function isImage(doc: DocumentItem): boolean {
+  return doc.mime.startsWith('image/')
+}
+
+function isPDF(doc: DocumentItem): boolean {
+  return doc.mime === 'application/pdf'
+}
+
+function previewURL(doc: DocumentItem): string {
+  return `/api/documents/${doc.id}/download?inline=1`
+}
+
+function downloadURL(doc: DocumentItem): string {
+  return `/api/documents/${doc.id}/download`
 }
 
 watch(() => store.selectedId, load)
@@ -263,17 +349,14 @@ onMounted(() => {
       subtitle="Facturas, nóminas, recibos y justificantes del contribuyente activo. La biblioteca organiza los originales en tu equipo y extrae el texto en local."
     >
       <template #actions>
-        <button
-          v-if="library?.configured"
-          class="btn-ghost"
-          :disabled="scanning"
-          @click="scanLibrary"
-        >
+        <button v-if="library?.configured" class="btn-ghost" :disabled="scanning" @click="scanLibrary">
           <Loader2 v-if="scanning" class="h-4 w-4 animate-spin" />
           <ScanLine v-else class="h-4 w-4" />
           {{ scanning ? 'Escaneando…' : 'Escanear biblioteca' }}
         </button>
-        <span class="chip bg-slate-100 text-slate-600">{{ documents.length }} ficheros · {{ bytes(totalSize) }}</span>
+        <span class="chip bg-slate-100 text-slate-600">
+          {{ documents.length }} fichero{{ documents.length === 1 ? '' : 's' }} · {{ bytes(totalSize) }}
+        </span>
       </template>
     </PageHeader>
 
@@ -289,79 +372,126 @@ onMounted(() => {
         <AlertTriangle class="mr-1 h-3 w-3" /> {{ reviewCount }} por revisar
       </span>
       <span v-if="!library.tesseract" class="chip bg-slate-100 text-slate-500">OCR no disponible</span>
-      <span class="ml-auto text-[11px] text-slate-400">Las copias se guardan por contribuyente / año / trimestre / tipo.</span>
+      <span class="ml-auto text-[11px] text-slate-400">
+        Las copias se guardan por contribuyente / año / trimestre / tipo.
+      </span>
     </div>
     <div v-else class="mb-4 rounded-2xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-500">
       <FolderTree class="mr-1 inline h-4 w-4 text-slate-400" />
-      La biblioteca documental está desactivada. <RouterLink to="/ajustes" class="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2">Configúrala en Ajustes</RouterLink>
+      La biblioteca documental está desactivada.
+      <RouterLink to="/ajustes" class="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2">
+        Configúrala en Ajustes
+      </RouterLink>
       para organizar los ficheros automáticamente.
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-3">
-      <section class="card card-pad h-fit">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Subir documento</h2>
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <section class="card card-pad h-fit min-w-0">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Subir documentos</h2>
         <p class="mt-1 text-xs text-slate-500">
-          Para {{ store.selectedTaxpayer?.name ?? 'el contribuyente activo' }}.
+          Para {{ store.selectedTaxpayer?.name ?? 'el contribuyente activo' }}. Puedes arrastrar varios ficheros.
         </p>
 
         <button
-          class="mt-4 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 px-4 py-7 text-center transition hover:border-slate-300 hover:bg-slate-50"
+          type="button"
+          class="mt-4 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-7 text-center transition"
+          :class="dragOver ? 'border-slate-900 bg-slate-100' : 'border-slate-200 bg-slate-50/60 hover:border-slate-300 hover:bg-slate-50'"
           @click="pickFile"
+          @dragover.prevent="dragOver = true"
+          @dragleave="dragOver = false"
+          @drop.prevent="onDrop"
         >
           <Upload class="h-6 w-6 text-slate-400" />
           <span class="mt-2 text-sm font-semibold text-slate-700">
-            {{ selectedFile?.name ?? 'Seleccionar fichero' }}
+            {{
+              selectedFiles.length
+                ? `${selectedFiles.length} fichero${selectedFiles.length === 1 ? '' : 's'} seleccionado${selectedFiles.length === 1 ? '' : 's'}`
+                : 'Seleccionar o arrastrar ficheros'
+            }}
           </span>
-          <span class="mt-0.5 text-xs text-slate-400">
-            {{ selectedFile ? bytes(selectedFile.size) : 'PDF, imagen o cualquier documento' }}
+          <span class="mt-0.5 text-xs text-slate-500">
+            PDF, imágenes o cualquier documento · hasta 64 MB por fichero
           </span>
         </button>
-        <input ref="fileInput" type="file" class="hidden" @change="onFileChange" />
+        <input ref="fileInput" type="file" class="hidden" multiple @change="onFileChange" />
+
+        <div v-if="selectedFiles.length" class="mt-2 space-y-1">
+          <div
+            v-for="(file, index) in selectedFiles"
+            :key="`${file.name}-${index}`"
+            class="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600"
+          >
+            <FileText class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span class="min-w-0 flex-1 truncate">{{ file.name }}</span>
+            <span class="shrink-0 text-slate-400">{{ bytes(file.size) }}</span>
+            <button
+              type="button"
+              class="rounded p-0.5 text-slate-400 hover:bg-white hover:text-slate-700"
+              :aria-label="`Quitar ${file.name}`"
+              @click="removeSelectedFile(index)"
+            >
+              <X class="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <p class="mt-3 text-[11px] text-slate-500">
+          Los datos de tipo, fecha, importe y NIF se aplican a todos los ficheros seleccionados.
+        </p>
 
         <div class="mt-4 space-y-3">
           <div>
-            <label class="label">Tipo</label>
-            <select v-model="kind" class="input">
+            <label class="label" for="upload-kind">Tipo</label>
+            <select id="upload-kind" v-model="kind" class="input">
               <option v-for="item in kinds" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">Fecha</label>
-              <input v-model="docDate" type="date" class="input" />
+              <label class="label" for="upload-date">Fecha</label>
+              <input id="upload-date" v-model="docDate" type="date" class="input" />
             </div>
             <div>
-              <label class="label">Importe</label>
-              <input v-model="amount" class="input" placeholder="0,00" inputmode="decimal" />
+              <label class="label" for="upload-amount">Importe</label>
+              <input id="upload-amount" v-model="amount" class="input" placeholder="0,00" inputmode="decimal" />
             </div>
           </div>
           <div>
-            <label class="label">NIF contraparte</label>
-            <input v-model="counterparty" class="input" placeholder="Opcional" />
+            <label class="label" for="upload-nif">NIF contraparte</label>
+            <input id="upload-nif" v-model="counterparty" class="input" placeholder="Opcional" />
           </div>
         </div>
 
-        <button class="btn-accent mt-4 w-full" :disabled="uploading" @click="upload">
-          <Upload class="h-4 w-4" /> {{ uploading ? 'Subiendo…' : 'Subir y archivar' }}
+        <button class="btn-accent mt-4 w-full" :disabled="uploading || !selectedFiles.length" @click="upload">
+          <Loader2 v-if="uploading" class="h-4 w-4 animate-spin" />
+          <Upload v-else class="h-4 w-4" />
+          {{ uploading ? 'Subiendo…' : `Subir ${selectedFiles.length || ''} y archivar` }}
         </button>
-        <p class="mt-3 text-[11px] leading-relaxed text-slate-400">
-          El cálculo de modelos usa las facturas registradas, no los PDF. Sube el fichero y registra la factura en la sección Facturas.
+        <p class="mt-3 text-[11px] leading-relaxed text-slate-500">
+          El cálculo de modelos usa las facturas registradas, no los PDF. Sube el fichero y registra la factura
+          en la sección Facturas.
         </p>
       </section>
 
-      <section class="lg:col-span-2">
+      <section class="min-w-0 lg:col-span-2">
         <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div class="relative flex-1">
             <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input v-model="search" class="input pl-9" placeholder="Buscar por nombre, NIF o texto…" />
+            <input
+              v-model="search"
+              class="input pl-9"
+              type="search"
+              placeholder="Buscar por nombre, NIF o texto…"
+              aria-label="Buscar documentos"
+            />
           </div>
-          <select v-model="kindFilter" class="input sm:w-52">
+          <select v-model="kindFilter" class="input sm:w-52" aria-label="Filtrar por tipo">
             <option value="">Todos los tipos</option>
             <option v-for="item in kinds" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
           <label class="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">
             <input v-model="reviewFilter" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
-            Solo pendientes
+            Solo por revisar
             <span v-if="reviewCount" class="chip bg-amber-50 text-amber-700">{{ reviewCount }}</span>
           </label>
         </div>
@@ -371,8 +501,8 @@ onMounted(() => {
         </div>
 
         <EmptyState
-          v-else-if="!filtered.length"
-          title="Sin documentos"
+          v-else-if="!documents.length"
+          title="Sin documentos todavía"
           description="Sube facturas, nóminas o justificantes para tener toda la documentación del expediente en un único sitio."
         >
           <template #icon><FolderOpen class="h-6 w-6" /></template>
@@ -381,7 +511,19 @@ onMounted(() => {
           </template>
         </EmptyState>
 
+        <EmptyState
+          v-else-if="!filtered.length"
+          title="Sin resultados con estos filtros"
+          description="Prueba otra búsqueda o quita el filtro de revisión para ver todos los documentos."
+        >
+          <template #icon><Search class="h-6 w-6" /></template>
+          <template #action>
+            <button v-if="hasFilters" class="btn-ghost" @click="clearFilters">Limpiar filtros</button>
+          </template>
+        </EmptyState>
+
         <div v-else class="card overflow-hidden">
+          <p class="px-4 pt-3 text-[11px] text-slate-500 sm:hidden">Desliza lateralmente para ver todas las columnas.</p>
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -391,13 +533,18 @@ onMounted(() => {
                   <th>Fecha</th>
                   <th class="text-right">Importe</th>
                   <th class="text-right">Tamaño</th>
-                  <th></th>
+                  <th><span class="sr-only">Acciones</span></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="doc in filtered" :key="doc.id">
                   <td>
-                    <button type="button" class="flex min-w-0 items-center gap-2 text-left" title="Ver y revisar" @click="openReview(doc)">
+                    <button
+                      type="button"
+                      class="flex min-w-0 items-center gap-2 text-left"
+                      title="Ver y revisar"
+                      @click="openReview(doc)"
+                    >
                       <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
                         <FileText class="h-4 w-4" />
                       </span>
@@ -417,20 +564,37 @@ onMounted(() => {
                       </span>
                     </div>
                   </td>
-                  <td class="text-xs text-slate-500">{{ doc.doc_date ? dateLabel(doc.doc_date) : dateLabel(doc.created_at) }}</td>
+                  <td class="text-xs text-slate-500">
+                    {{ doc.doc_date ? dateLabel(doc.doc_date) : dateLabel(doc.created_at) }}
+                  </td>
                   <td class="text-right font-mono text-xs tabular-nums text-slate-600">
                     {{ doc.amount_cents !== null ? euros(doc.amount_cents) : '—' }}
                   </td>
                   <td class="text-right text-xs text-slate-500">{{ bytes(doc.size) }}</td>
                   <td>
                     <div class="flex justify-end gap-1">
-                      <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Revisar" @click="openReview(doc)">
+                      <button
+                        class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Revisar documento"
+                        title="Revisar"
+                        @click="openReview(doc)"
+                      >
                         <Pencil class="h-4 w-4" />
                       </button>
-                      <a :href="`/api/documents/${doc.id}/download`" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Descargar">
+                      <a
+                        :href="downloadURL(doc)"
+                        class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Descargar documento"
+                        title="Descargar"
+                      >
                         <Download class="h-4 w-4" />
                       </a>
-                      <button class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Eliminar" @click="remove(doc)">
+                      <button
+                        class="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Eliminar documento"
+                        title="Eliminar"
+                        @click="remove(doc)"
+                      >
                         <Trash2 class="h-4 w-4" />
                       </button>
                     </div>
@@ -448,6 +612,7 @@ onMounted(() => {
       title="Revisar documento"
       subtitle="Confirma el contribuyente, el tipo y los datos detectados. La revisión no modifica el fichero original."
       size="lg"
+      persistent
     >
       <div v-if="reviewDoc" class="space-y-4">
         <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
@@ -460,50 +625,70 @@ onMounted(() => {
             </div>
             <span class="chip bg-white text-slate-500">{{ ocrLabel(reviewDoc.ocr_status) }}</span>
           </div>
+
+          <div v-if="isImage(reviewDoc) || isPDF(reviewDoc)" class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <img
+              v-if="isImage(reviewDoc)"
+              :src="previewURL(reviewDoc)"
+              :alt="`Vista previa de ${reviewDoc.filename}`"
+              class="max-h-80 w-full object-contain"
+            />
+            <iframe
+              v-else
+              :src="previewURL(reviewDoc)"
+              :title="`Vista previa de ${reviewDoc.filename}`"
+              class="h-80 w-full"
+            />
+          </div>
+
           <div class="mt-3 max-h-56 overflow-auto rounded-xl bg-white p-3">
-            <pre v-if="reviewDoc.text_excerpt" class="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-slate-600">{{ reviewDoc.text_excerpt }}</pre>
-            <p v-else class="text-xs text-slate-400">
-              No hay texto extraído. Si el documento es una imagen o un PDF escaneado, instala Tesseract y usa «Reprocesar texto».
+            <pre
+              v-if="reviewDoc.text_excerpt"
+              class="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-slate-600"
+            >{{ reviewDoc.text_excerpt }}</pre>
+            <p v-else class="text-xs text-slate-500">
+              No hay texto extraído. Si el documento es una imagen o un PDF escaneado, instala Tesseract y usa
+              «Reprocesar texto».
             </p>
           </div>
           <ul v-if="reviewDoc.review_status === 'review' && reviewReasons.length" class="mt-3 space-y-1 text-[11px] text-amber-700">
             <li v-for="reason in reviewReasons" :key="reason" class="flex gap-1.5">
-              <AlertTriangle class="mt-0.5 h-3 w-3 shrink-0" /> {{ reason }}
+              <AlertTriangle class="mt-0.5 h-3 w-3 shrink-0" /> {{ reasonLabel(reason) }}
             </li>
           </ul>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label class="label">Contribuyente</label>
-            <select v-model="reviewForm.taxpayer_id" class="input">
+            <label class="label" for="review-taxpayer">Contribuyente</label>
+            <select id="review-taxpayer" v-model="reviewForm.taxpayer_id" class="input">
               <option value="">Sin asignar</option>
               <option v-for="t in store.taxpayers" :key="t.id" :value="t.id">{{ t.name }} · {{ t.nif }}</option>
             </select>
           </div>
           <div>
-            <label class="label">Tipo</label>
-            <select v-model="reviewForm.kind" class="input">
+            <label class="label" for="review-kind">Tipo</label>
+            <select id="review-kind" v-model="reviewForm.kind" class="input">
               <option v-for="item in kinds" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </div>
           <div>
-            <label class="label">Fecha</label>
-            <input v-model="reviewForm.doc_date" type="date" class="input" />
+            <label class="label" for="review-date">Fecha</label>
+            <input id="review-date" v-model="reviewForm.doc_date" type="date" class="input" />
           </div>
           <div>
-            <label class="label">Importe</label>
-            <input v-model="reviewForm.amount" class="input" placeholder="0,00" inputmode="decimal" />
+            <label class="label" for="review-amount">Importe</label>
+            <input id="review-amount" v-model="reviewForm.amount" class="input" placeholder="0,00" inputmode="decimal" />
           </div>
           <div class="sm:col-span-2">
-            <label class="label">NIF contraparte</label>
-            <input v-model="reviewForm.counterparty_nif" class="input" placeholder="Opcional" />
+            <label class="label" for="review-nif">NIF contraparte</label>
+            <input id="review-nif" v-model="reviewForm.counterparty_nif" class="input" placeholder="Opcional" />
           </div>
         </div>
 
-        <p class="text-[11px] leading-relaxed text-slate-400">
-          Al guardar, el documento deja de estar pendiente de revisión. Si cambias la fecha o el tipo, el fichero permanece en su
-          carpeta actual; puedes reorganizar la biblioteca desde Ajustes.
+        <p class="text-[11px] leading-relaxed text-slate-500">
+          Al guardar, el documento deja de estar pendiente de revisión. Si cambias la fecha o el tipo, el fichero
+          permanece en su carpeta actual; puedes reorganizar la biblioteca desde Ajustes.
         </p>
       </div>
 
@@ -513,6 +698,13 @@ onMounted(() => {
           <ScanLine v-else class="h-4 w-4" />
           {{ reprocessing ? 'Procesando…' : 'Reprocesar texto' }}
         </button>
+        <a
+          v-if="reviewDoc"
+          :href="downloadURL(reviewDoc)"
+          class="btn-ghost"
+        >
+          <Download class="h-4 w-4" /> Descargar
+        </a>
         <button class="btn-ghost" @click="reviewOpen = false">Cancelar</button>
         <button class="btn-accent" :disabled="reviewSaving" @click="saveReview">
           <Loader2 v-if="reviewSaving" class="h-4 w-4 animate-spin" />
@@ -520,5 +712,16 @@ onMounted(() => {
         </button>
       </template>
     </Modal>
+
+    <ConfirmDialog
+      :model-value="!!confirmDoc"
+      title="Eliminar documento"
+      :message="`Se eliminará «${confirmDoc?.filename ?? ''}» de la aplicación y del almacenamiento local. Esta acción no se puede deshacer.`"
+      confirm-label="Eliminar documento"
+      tone="danger"
+      :busy="deleting"
+      @update:model-value="onDeleteDialogUpdate"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>

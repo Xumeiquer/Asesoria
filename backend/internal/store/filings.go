@@ -122,9 +122,11 @@ func (s *Store) UpsertFilings(ctx context.Context, filings []domain.Filing) (int
 func (s *Store) UpdateFiling(ctx context.Context, f *domain.Filing) error {
 	f.UpdatedAt = Now()
 	res, err := s.DB.ExecContext(ctx, `UPDATE filings SET
-		status = ?, data_json = ?, computed_json = ?, notes = ?, updated_at = ?
+		status = ?, data_json = ?, computed_json = ?, notes = ?,
+		presented_at = ?, receipt_document_id = ?, updated_at = ?
 		WHERE id = ?`,
-		f.Status, jsonString(f.Data), jsonString(f.Computed), f.Notes, f.UpdatedAt, f.ID)
+		f.Status, jsonString(f.Data), jsonString(f.Computed), f.Notes,
+		nullStringPtr(f.PresentedAt), nullStringPtr(f.ReceiptDocumentID), f.UpdatedAt, f.ID)
 	if err != nil {
 		return err
 	}
@@ -161,6 +163,44 @@ func (s *Store) SetFilingStatus(ctx context.Context, id, status string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// BulkSetFilingStatus applies the same state to several filings in one
+// transaction. Marking as presented in bulk deliberately creates a presented
+// filing without a receipt; the dashboard and calendar expose that difference.
+func (s *Store) BulkSetFilingStatus(ctx context.Context, ids []string, status string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, len(ids))
+	for i := range ids {
+		placeholders[i] = "?"
+	}
+	now := Now()
+	query := `UPDATE filings SET status = ?`
+	args := []any{status}
+	if status == domain.StatusPresented {
+		query += `, presented_at = ?, receipt_document_id = NULL`
+		args = append(args, now)
+	} else {
+		query += `, presented_at = NULL, receipt_document_id = NULL`
+	}
+	query += `, updated_at = ? WHERE id IN (` + strings.Join(placeholders, ",") + `)`
+	args = append(args, now)
+	args = append(args, anyIDs(ids)...)
+	res, err := s.DB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func anyIDs(ids []string) []any {
+	out := make([]any, len(ids))
+	for i, id := range ids {
+		out[i] = id
+	}
+	return out
 }
 
 func (s *Store) PreviousFilings(ctx context.Context, taxpayerID, modelCode string, year int, beforePeriodStart string) ([]domain.Filing, error) {

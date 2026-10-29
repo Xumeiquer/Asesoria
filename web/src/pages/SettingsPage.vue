@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   Check,
   Copy,
+  Database,
+  Download,
   FolderTree,
   HardDrive,
   KeyRound,
@@ -16,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, dateLabel, dateTimeLabel } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
@@ -27,6 +30,9 @@ const codes = ref<PairingCode | null>(null)
 const tokens = ref<ApiToken[]>([])
 const loading = ref(false)
 const copied = ref(false)
+const dataDirCopied = ref(false)
+const confirmToken = ref<ApiToken | null>(null)
+const revoking = ref(false)
 
 const library = ref<LibraryConfig | null>(null)
 const libraryRoot = ref('')
@@ -140,15 +146,50 @@ async function copyCode() {
   }
 }
 
-async function revoke(token: ApiToken) {
-  if (!window.confirm(`¿Revocar el acceso de "${token.name}"? La extensión dejará de poder leer datos.`)) return
+function requestRevoke(token: ApiToken) {
+  confirmToken.value = token
+}
+
+async function confirmRevoke() {
+  if (!confirmToken.value) return
+  revoking.value = true
   try {
-    await api.del(`/pairing/tokens/${token.id}`)
+    await api.del(`/pairing/tokens/${confirmToken.value.id}`)
     toasts.success('Acceso revocado')
+    confirmToken.value = null
     await load()
   } catch (error) {
     toasts.error(error instanceof Error ? error.message : 'No se pudo revocar el acceso')
+  } finally {
+    revoking.value = false
   }
+}
+
+function onRevokeDialogUpdate(open: boolean) {
+  if (!open && !revoking.value) confirmToken.value = null
+}
+
+async function copyDataDir() {
+  const value = store.meta?.data_dir
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    dataDirCopied.value = true
+    toasts.success('Ruta de datos copiada')
+    window.setTimeout(() => (dataDirCopied.value = false), 2500)
+  } catch {
+    toasts.error('No se pudo copiar la ruta')
+  }
+}
+
+function downloadBackup() {
+  const link = document.createElement('a')
+  link.href = '/api/backup'
+  link.download = ''
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  toasts.success('Preparando la copia de seguridad…')
 }
 
 onMounted(load)
@@ -291,17 +332,28 @@ onMounted(load)
           <ol class="mt-5 grid gap-3 text-sm text-slate-600">
             <li class="flex gap-3">
               <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">1</span>
-              <span>Compila la extensión: <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">cd extension && npm install && npm run build</code>.</span>
+              <span>
+                Abre <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">chrome://extensions</code>, activa el modo
+                desarrollador y elige «Cargar descomprimida». Selecciona la carpeta
+                <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">extension/dist</code> de este proyecto.
+              </span>
             </li>
             <li class="flex gap-3">
               <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">2</span>
-              <span>Abre <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">chrome://extensions</code>, activa el modo desarrollador y carga la carpeta <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">extension/dist</code>.</span>
-            </li>
-            <li class="flex gap-3">
-              <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">3</span>
-              <span>Abre el popup, pega el código y pulsa Conectar. El token aparece abajo y puedes revocarlo cuando quieras.</span>
+              <span>Abre el popup, pega el código de arriba y pulsa Conectar. El token aparece abajo y puedes revocarlo cuando quieras.</span>
             </li>
           </ol>
+          <details class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+            <summary class="cursor-pointer font-semibold text-slate-700">¿No existe la carpeta extension/dist?</summary>
+            <p class="mt-2 leading-relaxed">
+              Compílala una vez desde la carpeta del proyecto:
+              <code class="rounded bg-white px-1.5 py-0.5 font-mono text-[11px]">cd extension &amp;&amp; npm install &amp;&amp; npm run build</code>.
+              Después vuelve a cargar <code class="rounded bg-white px-1.5 py-0.5 font-mono text-[11px]">extension/dist</code>.
+            </p>
+          </details>
+          <p class="mt-3 text-xs text-slate-500">
+            La extensión es opcional: solo sirve para importar datos desde el navegador. La aplicación funciona sin ella.
+          </p>
         </div>
 
         <div class="card">
@@ -311,29 +363,37 @@ onMounted(load)
             </h2>
             <span class="chip bg-slate-100 text-slate-600">{{ tokens.length }} {{ tokens.length === 1 ? 'activo' : 'activos' }}</span>
           </div>
-          <div v-if="tokens.length" class="table-wrap">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Creado</th>
-                  <th>Último uso</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="token in tokens" :key="token.id">
-                  <td class="font-medium text-slate-800">{{ token.name }}</td>
-                  <td class="text-xs text-slate-500">{{ dateTimeLabel(token.created_at) }}</td>
-                  <td class="text-xs text-slate-500">{{ token.last_used_at ? dateTimeLabel(token.last_used_at) : 'Nunca' }}</td>
-                  <td class="text-right">
-                    <button class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" @click="revoke(token)">
-                      <Trash2 class="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="tokens.length">
+            <p class="px-5 pt-3 text-[11px] text-slate-500 sm:hidden">Desliza lateralmente para ver todas las columnas.</p>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Creado</th>
+                    <th>Último uso</th>
+                    <th><span class="sr-only">Acciones</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="token in tokens" :key="token.id">
+                    <td class="font-medium text-slate-800">{{ token.name }}</td>
+                    <td class="text-xs text-slate-500">{{ dateTimeLabel(token.created_at) }}</td>
+                    <td class="text-xs text-slate-500">{{ token.last_used_at ? dateTimeLabel(token.last_used_at) : 'Nunca' }}</td>
+                    <td class="text-right">
+                      <button
+                        class="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                        :aria-label="`Revocar acceso de ${token.name}`"
+                        title="Revocar acceso"
+                        @click="requestRevoke(token)"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <p v-else class="px-5 py-8 text-center text-sm text-slate-500">
             Todavía no hay ninguna extensión conectada.
@@ -355,6 +415,22 @@ onMounted(load)
 
       <aside class="space-y-4">
         <div class="card card-pad">
+          <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-500">
+            <Database class="h-4 w-4" /> Copia de seguridad
+          </h2>
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">
+            Descarga un ZIP con una copia consistente de la base SQLite y los datos locales. Puedes guardarlo en un
+            disco externo o en tu carpeta de copias.
+          </p>
+          <button class="btn-primary mt-4 w-full" @click="downloadBackup">
+            <Download class="h-4 w-4" /> Descargar copia de seguridad
+          </button>
+          <p class="mt-3 text-xs leading-relaxed text-slate-500">
+            Los documentos de la biblioteca viven en su propia carpeta. Si la usas, inclúyela también en tus copias.
+          </p>
+        </div>
+
+        <div class="card card-pad">
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Entorno local</h2>
           <dl class="mt-4 space-y-3 text-sm">
             <div>
@@ -375,7 +451,18 @@ onMounted(load)
             </div>
             <div>
               <dt class="text-xs text-slate-400">Directorio de datos</dt>
-              <dd class="break-all rounded-lg bg-slate-50 p-2 font-mono text-xs text-slate-600">{{ store.meta?.data_dir ?? '—' }}</dd>
+              <dd class="mt-1 flex items-start gap-2 rounded-lg bg-slate-50 p-2">
+                <code class="min-w-0 flex-1 break-all font-mono text-xs text-slate-600">{{ store.meta?.data_dir ?? '—' }}</code>
+                <button
+                  class="shrink-0 rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                  :aria-label="dataDirCopied ? 'Ruta copiada' : 'Copiar ruta de datos'"
+                  :title="dataDirCopied ? 'Copiado' : 'Copiar ruta'"
+                  @click="copyDataDir"
+                >
+                  <Check v-if="dataDirCopied" class="h-3.5 w-3.5 text-emerald-600" />
+                  <Copy v-else class="h-3.5 w-3.5" />
+                </button>
+              </dd>
             </div>
           </dl>
           <p class="mt-4 text-xs leading-relaxed text-slate-500">
@@ -393,5 +480,16 @@ onMounted(load)
         </div>
       </aside>
     </div>
+
+    <ConfirmDialog
+      :model-value="!!confirmToken"
+      title="Revocar acceso de la extensión"
+      :message="`La extensión «${confirmToken?.name ?? ''}» dejará de poder leer datos de esta aplicación. Puedes volver a conectarla generando un código nuevo.`"
+      confirm-label="Revocar acceso"
+      tone="danger"
+      :busy="revoking"
+      @update:model-value="onRevokeDialogUpdate"
+      @confirm="confirmRevoke"
+    />
   </div>
 </template>

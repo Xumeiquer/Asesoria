@@ -16,6 +16,7 @@ import {
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, bytes, dateLabel, dateTimeLabel, daysUntil } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
@@ -38,6 +39,7 @@ const notes = ref('')
 const checklist = ref<Record<string, boolean>>({})
 const receiptInput = ref<HTMLInputElement | null>(null)
 const receiptFile = ref<File | null>(null)
+const confirmPresentOpen = ref(false)
 
 const tabs = [
   { id: 'summary', label: 'Resumen y cálculo' },
@@ -159,12 +161,16 @@ async function changeStatus(status: FilingStatus) {
   }
 }
 
-async function markPresented() {
-  if (!window.confirm('¿Marcar este expediente como presentado? La aplicación no presenta nada en AEAT: solo registra el estado y archiva el justificante.')) return
+function markPresented() {
+  confirmPresentOpen.value = true
+}
+
+async function confirmMarkPresented() {
   busy.value = 'present'
   try {
     filing.value = await api.post<Filing>(`/filings/${props.id}/present`, {})
-    toasts.success('Expediente marcado como presentado')
+    confirmPresentOpen.value = false
+    toasts.success('Expediente marcado como presentado sin justificante')
   } catch (error) {
     toasts.error(error instanceof Error ? error.message : 'No se pudo marcar como presentado')
   } finally {
@@ -260,6 +266,12 @@ onBeforeUnmount(() => {
 
     <div class="mb-5 flex flex-wrap items-center gap-3">
       <StatusBadge :status="filing.status" />
+      <span
+        v-if="filing.status === 'presented' && !filing.receipt_document_id"
+        class="chip bg-amber-50 text-amber-700"
+      >
+        <AlertTriangle class="mr-1 h-3 w-3" /> Sin justificante
+      </span>
       <span class="chip bg-slate-100 text-slate-600">{{ filing.entity }}</span>
       <span v-if="model && model.periodicity !== 'Puntual'" class="chip bg-slate-100 text-slate-600">
         Periodicidad: {{ model.periodicity }}
@@ -393,13 +405,18 @@ onBeforeUnmount(() => {
           </dl>
 
           <div class="mt-5">
-            <label class="label">Estado del expediente</label>
-            <select class="input" :value="filing.status" @change="onStatusChange">
+            <label class="label" for="filing-status">Estado del expediente</label>
+            <div
+              v-if="filing.status === 'presented'"
+              class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-emerald-800"
+            >
+              Presentado{{ filing.receipt_document_id ? ' con justificante archivado' : ' sin justificante' }}. Para
+              reabrirlo, cambia el estado desde el calendario o vuelve a la cola de trabajo.
+            </div>
+            <select v-else id="filing-status" class="input" :value="filing.status" @change="onStatusChange">
               <option value="pending">Pendiente</option>
               <option value="in_progress">En curso</option>
               <option value="ready">Listo para presentar</option>
-              <option value="presented">Presentado</option>
-              <option value="late">Fuera de plazo</option>
               <option value="not_applicable">No aplica</option>
             </select>
           </div>
@@ -596,5 +613,16 @@ onBeforeUnmount(() => {
         </div>
       </aside>
     </div>
+
+    <ConfirmDialog
+      :model-value="confirmPresentOpen"
+      title="Marcar como presentado"
+      message="La aplicación no presenta nada por ti: solo registra el estado. El expediente quedará como presentado sin justificante hasta que archives el acuse."
+      confirm-label="Marcar presentado"
+      tone="warning"
+      :busy="busy === 'present'"
+      @update:model-value="confirmPresentOpen = $event"
+      @confirm="confirmMarkPresented"
+    />
   </div>
 </template>

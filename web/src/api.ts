@@ -59,12 +59,23 @@ export function euros(cents: number | null | undefined): string {
 }
 
 export function centsFromEuros(value: string): number {
-  let normalized = value.trim()
+  let normalized = value.trim().replace(/[€\s]/g, '')
   if (!normalized) return 0
   if (normalized.includes(',') && normalized.includes('.')) {
     normalized = normalized.replace(/\./g, '').replace(',', '.')
   } else if (normalized.includes(',')) {
     normalized = normalized.replace(',', '.')
+  } else if (normalized.includes('.')) {
+    // Spanish input treats 1.234 and 1.234.567 as thousands separators, while
+    // 1234.56 and 1.5 are decimals.
+    const parts = normalized.split('.')
+    const last = parts[parts.length - 1]
+    if (
+      parts.length > 2 ||
+      (parts.length === 2 && last.length === 3 && parts[0].length > 0 && parts[0].length <= 3)
+    ) {
+      normalized = parts.join('')
+    }
   }
   const n = Number(normalized)
   if (!Number.isFinite(n)) return 0

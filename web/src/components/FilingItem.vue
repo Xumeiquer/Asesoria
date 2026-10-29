@@ -58,8 +58,14 @@ const dueText = computed(() => {
       </p>
     </div>
 
-    <div class="hidden sm:block">
+    <div class="hidden shrink-0 flex-col items-end gap-1 sm:flex">
       <StatusBadge :status="filing.status" />
+      <span
+        v-if="filing.status === 'presented' && !filing.receipt_document_id"
+        class="chip bg-amber-50 text-amber-700"
+      >
+        Sin justificante
+      </span>
     </div>
     <ArrowUpRight class="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-600" />
   </RouterLink>

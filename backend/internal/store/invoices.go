@@ -27,6 +27,27 @@ func (s *Store) CreateInvoice(ctx context.Context, inv *domain.Invoice) error {
 	return err
 }
 
+func (s *Store) UpdateInvoice(ctx context.Context, inv *domain.Invoice) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE invoices SET
+		taxpayer_id = ?, direction = ?, number = ?, invoice_date = ?,
+		counterparty_nif = ?, counterparty_name = ?, concept = ?,
+		base_cents = ?, vat_rate = ?, vat_cents = ?, retention_rate = ?,
+		retention_cents = ?, total_cents = ?, category = ?, document_id = ?
+		WHERE id = ?`,
+		inv.TaxpayerID, inv.Direction, inv.Number, inv.InvoiceDate,
+		inv.CounterpartyNIF, inv.CounterpartyName, inv.Concept,
+		inv.BaseCents, inv.VATRate, inv.VATCents, inv.RetentionRate,
+		inv.RetentionCents, inv.TotalCents, inv.Category,
+		nullStringPtr(inv.DocumentID), inv.ID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) GetInvoice(ctx context.Context, id string) (domain.Invoice, error) {
 	row := s.DB.QueryRowContext(ctx, selectInvoice+` WHERE id = ?`, id)
 	inv, err := scanInvoice(row)

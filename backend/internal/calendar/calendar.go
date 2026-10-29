@@ -30,6 +30,9 @@ func (g *Generator) Generate(t domain.Taxpayer, year int) []domain.Filing {
 			continue
 		}
 		for _, p := range g.periodsFor(m, year) {
+			if t.ActivityStart != "" && p.end.Format("2006-01-02") < t.ActivityStart {
+				continue
+			}
 			out = append(out, domain.Filing{
 				TaxpayerID:  t.ID,
 				ModelCode:   m.Code,

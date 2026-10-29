@@ -81,6 +81,7 @@ func (s *Server) Handler() http.Handler {
 			pr.Use(s.extensionReadOnly)
 
 			pr.Get("/meta", s.handleMeta)
+			pr.Get("/backup", s.handleBackup)
 
 			pr.Get("/dashboard", s.handleDashboard)
 
@@ -98,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 			pr.Post("/calendar/generate", s.handleGenerateCalendar)
 
 			pr.Get("/filings", s.handleListFilings)
+			pr.Post("/filings/bulk-status", s.handleBulkFilingStatus)
 			pr.Get("/filings/{id}", s.handleGetFiling)
 			pr.Patch("/filings/{id}", s.handleUpdateFiling)
 			pr.Post("/filings/{id}/calculate", s.handleCalculateFiling)
@@ -117,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 
 			pr.Get("/invoices", s.handleListInvoices)
 			pr.Post("/invoices", s.handleCreateInvoice)
+			pr.Put("/invoices/{id}", s.handleUpdateInvoice)
 			pr.Delete("/invoices/{id}", s.handleDeleteInvoice)
 
 			pr.Post("/pairing/codes", s.handleCreatePairingCode)
@@ -345,15 +348,26 @@ func (s *Server) serveDiskWeb(w http.ResponseWriter, r *http.Request, clean stri
 	if clean != "" {
 		filePath := filepath.Join(s.WebDir, filepath.FromSlash(clean))
 		if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
-			http.ServeFile(w, r, filePath)
+			if clean == "index.html" {
+				serveIndexFile(w, r, filePath, info.ModTime())
+			} else {
+				setWebCacheHeader(w, clean)
+				http.ServeFile(w, r, filePath)
+			}
+			return true
+		}
+		if isStaticAssetPath(clean) {
+			w.Header().Set("Cache-Control", "no-store")
+			http.NotFound(w, r)
 			return true
 		}
 	}
 	index := filepath.Join(s.WebDir, "index.html")
-	if _, err := os.Stat(index); err != nil {
+	info, err := os.Stat(index)
+	if err != nil {
 		return false
 	}
-	http.ServeFile(w, r, index)
+	serveIndexFile(w, r, index, info.ModTime())
 	return true
 }
 
@@ -361,9 +375,15 @@ func (s *Server) serveEmbeddedWeb(w http.ResponseWriter, r *http.Request, clean 
 	webFS := webapp.FS()
 	if clean != "" && !strings.HasPrefix(path.Base(clean), ".") {
 		if info, err := fs.Stat(webFS, clean); err == nil && !info.IsDir() {
+			setWebCacheHeader(w, clean)
 			http.FileServer(http.FS(webFS)).ServeHTTP(w, r)
 			return
 		}
+	}
+	if isStaticAssetPath(clean) {
+		w.Header().Set("Cache-Control", "no-store")
+		http.NotFound(w, r)
+		return
 	}
 	index, err := fs.ReadFile(webFS, "index.html")
 	if err != nil {
@@ -372,7 +392,54 @@ func (s *Server) serveEmbeddedWeb(w http.ResponseWriter, r *http.Request, clean 
 		w.Write([]byte("La interfaz web no está embebida en este binario. Compila con `make build-backend`.\n"))
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
+}
+
+func serveIndexFile(w http.ResponseWriter, r *http.Request, filename string, modTime time.Time) {
+	f, err := os.Open(filename)
+	if err != nil {
+		w.Header().Set("Cache-Control", "no-store")
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeContent(w, r, "index.html", modTime, f)
+}
+
+// isStaticAssetPath reports whether a request is for a build artefact rather
+// than an SPA route. Missing assets must return 404 instead of index.html:
+// otherwise an old browser tab requesting a removed chunk receives HTML as
+// JavaScript and every lazy route fails to load.
+func isStaticAssetPath(clean string) bool {
+	if clean == "" {
+		return false
+	}
+	if strings.HasPrefix(clean, "assets/") {
+		return true
+	}
+	switch strings.ToLower(path.Ext(clean)) {
+	case ".js", ".mjs", ".css", ".map", ".json", ".wasm", ".png", ".jpg", ".jpeg",
+		".gif", ".svg", ".ico", ".webp", ".avif", ".woff", ".woff2", ".ttf",
+		".otf", ".eot", ".txt", ".pdf":
+		return true
+	}
+	return false
+}
+
+// setWebCacheHeader keeps the SPA shell revalidated while allowing immutable
+// caching of Vite's content-hashed assets.
+func setWebCacheHeader(w http.ResponseWriter, clean string) {
+	if clean == "index.html" {
+		w.Header().Set("Cache-Control", "no-store")
+		return
+	}
+	if strings.HasPrefix(clean, "assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
 }
 
 // handleSession sets the local session cookie. It is used by the Vite dev server

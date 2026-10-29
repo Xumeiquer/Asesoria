@@ -225,7 +225,7 @@ Cada modelo declara:
 - `obsolete` (opcional): conserva un modelo histórico sin tratarlo como vigente. El 037 está marcado así desde su supresión en 2025.
 - `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres o actividad económica.
 - `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento y offsets de periodo.
-- `documents`: checklist documental.
+- `documents`: checklist documental orientativa con los soportes habituales para cumplimentar el modelo; la ficha oficial puede exigir únicamente el modelo.
 - `auto`: si se genera automáticamente en el calendario.
 
 Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 aparece en el calendario de 2027. Los sábados y domingos se trasladan al lunes.

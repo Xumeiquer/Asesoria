@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
+
 withDefaults(
   defineProps<{
     label: string
     value: string | number
     hint?: string
     tone?: 'default' | 'emerald' | 'amber' | 'rose' | 'sky'
+    to?: string
   }>(),
   { tone: 'default' },
 )
@@ -19,7 +22,12 @@ const tones = {
 </script>
 
 <template>
-  <div class="card card-pad">
+  <component
+    :is="to ? RouterLink : 'div'"
+    :to="to"
+    class="card card-pad block"
+    :class="to ? 'transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md' : ''"
+  >
     <div class="flex items-start justify-between gap-3">
       <div>
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ label }}</p>
@@ -30,5 +38,5 @@ const tones = {
         <slot name="icon" />
       </span>
     </div>
-  </div>
+  </component>
 </template>

@@ -24,7 +24,11 @@ const route = useRoute()
 const mobileOpen = ref(false)
 
 function isActive(to: string): boolean {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
+  if (to === '/') return route.path === '/'
+  if (to === '/calendario') {
+    return route.path.startsWith('/calendario') || route.path.startsWith('/expedientes')
+  }
+  return route.path.startsWith(to)
 }
 
 const nav = [
@@ -69,12 +73,16 @@ onMounted(async () => {
           </span>
           <span>
             <span class="block text-base font-bold tracking-tight">Asesoría</span>
-            <span class="block text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
+            <span class="block text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
               ERP fiscal local
             </span>
           </span>
         </RouterLink>
-        <button class="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 lg:hidden" @click="mobileOpen = false">
+        <button
+          class="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 lg:hidden"
+          aria-label="Cerrar menú"
+          @click="mobileOpen = false"
+        >
           <X class="h-5 w-5" />
         </button>
       </div>
@@ -119,7 +127,7 @@ onMounted(async () => {
         </RouterLink>
       </div>
 
-      <div class="px-5 pb-5 text-[11px] text-slate-600">
+      <div class="px-5 pb-5 text-[11px] text-slate-400">
         v{{ store.meta?.version ?? '0.1.0' }} · catálogo {{ store.meta?.catalog_version ?? '—' }}
       </div>
     </aside>
@@ -132,6 +140,7 @@ onMounted(async () => {
         <div class="flex items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <button
             class="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 lg:hidden"
+            aria-label="Abrir menú"
             @click="mobileOpen = true"
           >
             <Menu class="h-5 w-5" />
@@ -157,7 +166,7 @@ onMounted(async () => {
           </div>
 
           <div class="ml-auto flex items-center gap-2">
-            <RouterLink to="/facturas" class="btn-ghost hidden sm:inline-flex">
+            <RouterLink to="/facturas?nueva=1" class="btn-ghost hidden sm:inline-flex">
               <ReceiptText class="h-4 w-4" />
               Nueva factura
             </RouterLink>
@@ -173,7 +182,7 @@ onMounted(async () => {
         </div>
       </header>
 
-      <main class="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <main class="mx-auto min-w-0 w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <RouterView v-slot="{ Component }">
           <component :is="Component" class="animate-in" />
         </RouterView>

@@ -53,6 +53,25 @@ func decodeMap(s string) map[string]any {
 	return m
 }
 
+func decodeStringSlice(s string) []string {
+	values := []string{}
+	if s == "" {
+		return values
+	}
+	_ = json.Unmarshal([]byte(s), &values)
+	if values == nil {
+		values = []string{}
+	}
+	return values
+}
+
+func firstCNAE(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
 func boolInt(v bool) int {
 	if v {
 		return 1
@@ -111,7 +130,8 @@ func (s *Store) Log(ctx context.Context, actor, action, entity, entityID string,
 func (s *Store) ListTaxpayers(ctx context.Context) ([]domain.Taxpayer, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		       has_employees, has_rentals, economic_activity, cnaes_json, fiscal_year_end, iban,
+		       activity_start,
 		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
 		FROM taxpayers ORDER BY name COLLATE NOCASE`)
@@ -133,7 +153,8 @@ func (s *Store) ListTaxpayers(ctx context.Context) ([]domain.Taxpayer, error) {
 func (s *Store) GetTaxpayer(ctx context.Context, id string) (domain.Taxpayer, error) {
 	row := s.DB.QueryRowContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		       has_employees, has_rentals, economic_activity, cnaes_json, fiscal_year_end, iban,
+		       activity_start,
 		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
 		FROM taxpayers WHERE id = ?`, id)
@@ -152,13 +173,14 @@ func (s *Store) CreateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	t.UpdatedAt = t.CreatedAt
 	_, err := s.DB.ExecContext(ctx, `
 		INSERT INTO taxpayers (id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		                       has_employees, has_rentals, economic_activity, cnae, fiscal_year_end, iban,
+		                       has_employees, has_rentals, economic_activity, cnae, cnaes_json,
+		                       fiscal_year_end, iban, activity_start,
 		                       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		                       created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
 		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
-		t.CNAE, t.FiscalYearEnd, t.IBAN,
+		firstCNAE(t.CNAEs), jsonString(t.CNAEs), t.FiscalYearEnd, t.IBAN, t.ActivityStart,
 		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
 		t.CreatedAt, t.UpdatedAt)
 	return err
@@ -169,13 +191,14 @@ func (s *Store) UpdateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE taxpayers SET nif = ?, name = ?, legal_form = ?, email = ?, phone = ?,
 		       vat_regime = ?, irpf_method = ?, has_employees = ?, has_rentals = ?,
-		       economic_activity = ?, cnae = ?, fiscal_year_end = ?, iban = ?,
+		       economic_activity = ?, cnae = ?, cnaes_json = ?, fiscal_year_end = ?, iban = ?,
+		       activity_start = ?,
 		       reta_base_cents = ?, reta_base_from = ?, reta_net_income_cents = ?, reta_net_income_year = ?,
 		       updated_at = ?
 		WHERE id = ?`,
 		t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
 		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
-		t.CNAE, t.FiscalYearEnd, t.IBAN,
+		firstCNAE(t.CNAEs), jsonString(t.CNAEs), t.FiscalYearEnd, t.IBAN, t.ActivityStart,
 		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
 		t.UpdatedAt, t.ID)
 	if err != nil {
@@ -237,14 +260,16 @@ func (s *Store) ListRetaBaseChanges(ctx context.Context, taxpayerID string) ([]d
 func scanTaxpayer(row scanner) (domain.Taxpayer, error) {
 	var t domain.Taxpayer
 	var hasEmployees, hasRentals, economicActivity int
+	var cnaesJSON string
 	err := row.Scan(&t.ID, &t.NIF, &t.Name, &t.LegalForm, &t.Email, &t.Phone,
 		&t.VATRegime, &t.IRPFMethod, &hasEmployees, &hasRentals, &economicActivity,
-		&t.CNAE, &t.FiscalYearEnd, &t.IBAN,
+		&cnaesJSON, &t.FiscalYearEnd, &t.IBAN, &t.ActivityStart,
 		&t.RetaBaseCents, &t.RetaBaseFrom, &t.RetaNetIncomeCents, &t.RetaNetIncomeYear,
 		&t.CreatedAt, &t.UpdatedAt)
 	t.HasEmployees = hasEmployees == 1
 	t.HasRentals = hasRentals == 1
 	t.EconomicActivity = economicActivity == 1
+	t.CNAEs = decodeStringSlice(cnaesJSON)
 	return t, err
 }
 
@@ -263,27 +288,37 @@ func (s *Store) Dashboard(ctx context.Context, taxpayerID string, year int) (dom
 
 	_ = s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM taxpayers`).Scan(&d.Taxpayers)
 
-	yearPrefix := fmt.Sprintf("%d-", year)
-	dueFilter := " AND due_date >= ? AND due_date <= ?"
-	dueArgs := append(append([]any{}, args...), yearPrefix+"01-01", yearPrefix+"12-31")
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status IN ('pending','in_progress','ready')`+where+dueFilter, dueArgs...).Scan(&d.Pending); err != nil {
-		return d, err
-	}
-
+	yearStart := fmt.Sprintf("%d-01-01", year)
+	yearEnd := fmt.Sprintf("%d-12-31", year)
 	today := time.Now().Format(dateLayout)
 	in45 := time.Now().AddDate(0, 0, 45).Format(dateLayout)
+	const openStatuses = "status IN ('pending','in_progress','ready')"
+
+	// Pending and overdue are intentionally disjoint: pending means still in
+	// term within the selected year, overdue means already past due within it.
+	pendingArgs := append(append([]any{}, args...), today, yearEnd)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE `+openStatuses+where+` AND due_date >= ? AND due_date <= ?`, pendingArgs...).Scan(&d.Pending); err != nil {
+		return d, err
+	}
+
 	soonArgs := append(append([]any{}, args...), today, in45)
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status IN ('pending','in_progress','ready')`+where+` AND due_date >= ? AND due_date <= ?`, soonArgs...).Scan(&d.DueSoon); err != nil {
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE `+openStatuses+where+` AND due_date >= ? AND due_date <= ?`, soonArgs...).Scan(&d.DueSoon); err != nil {
 		return d, err
 	}
 
-	overdueArgs := append(append([]any{}, args...), today)
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status IN ('pending','in_progress','ready')`+where+` AND due_date < ?`, overdueArgs...).Scan(&d.Overdue); err != nil {
+	overdueArgs := append(append([]any{}, args...), yearStart, today)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE `+openStatuses+where+` AND due_date >= ? AND due_date < ?`, overdueArgs...).Scan(&d.Overdue); err != nil {
 		return d, err
 	}
 
-	presentedArgs := append(append([]any{}, args...), yearPrefix+"01-01", yearPrefix+"12-31")
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status = 'presented'`+where+` AND presented_at >= ? AND presented_at <= ?`, presentedArgs...).Scan(&d.Presented); err != nil {
+	presentedArgs := append(append([]any{}, args...), yearStart, yearEnd)
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status = 'presented'`+where+` AND due_date >= ? AND due_date <= ?`, presentedArgs...).Scan(&d.Presented); err != nil {
+		return d, err
+	}
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status = 'presented' AND receipt_document_id IS NOT NULL`+where+` AND due_date >= ? AND due_date <= ?`, presentedArgs...).Scan(&d.PresentedWithReceipt); err != nil {
+		return d, err
+	}
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM filings WHERE status = 'presented' AND receipt_document_id IS NULL`+where+` AND due_date >= ? AND due_date <= ?`, presentedArgs...).Scan(&d.PresentedWithoutReceipt); err != nil {
 		return d, err
 	}
 
@@ -300,7 +335,7 @@ func (s *Store) Dashboard(ctx context.Context, taxpayerID string, year int) (dom
 		SELECT entity, COUNT(*) FROM filings
 		WHERE status IN ('pending','in_progress','ready')`+where+`
 		  AND due_date >= ? AND due_date <= ?
-		GROUP BY entity`, append(append([]any{}, args...), yearPrefix+"01-01", yearPrefix+"12-31")...)
+		GROUP BY entity`, append(append([]any{}, args...), yearStart, yearEnd)...)
 	if err == nil {
 
 		defer rows.Close()

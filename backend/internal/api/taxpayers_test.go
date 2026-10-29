@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func validRetaInput() taxpayerInput {
 	return taxpayerInput{
@@ -76,4 +79,32 @@ func TestTaxpayerInputRetaProfile(t *testing.T) {
 			t.Fatalf("SL kept RETA data: %+v", got)
 		}
 	})
+}
+
+func TestTaxpayerInputMultipleCNAEs(t *testing.T) {
+	in := validRetaInput()
+	in.CNAEs = []string{"7022", " 6201 ", "7022", ""}
+	got, msg := in.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected validation error: %s", msg)
+	}
+	if !slices.Equal(got.CNAEs, []string{"7022", "6201"}) {
+		t.Fatalf("unexpected CNAEs: %+v", got.CNAEs)
+	}
+
+	legacy := validRetaInput()
+	legacy.CNAE = "6920"
+	got, msg = legacy.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected legacy validation error: %s", msg)
+	}
+	if !slices.Equal(got.CNAEs, []string{"6920"}) {
+		t.Fatalf("legacy CNAE was not converted: %+v", got.CNAEs)
+	}
+
+	invalid := validRetaInput()
+	invalid.CNAEs = []string{"702"}
+	if _, msg := invalid.toDomain(); msg == "" {
+		t.Fatal("expected invalid CNAE to be rejected")
+	}
 }

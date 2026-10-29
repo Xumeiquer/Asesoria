@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   AlertTriangle,
@@ -22,7 +22,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { api } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
-import type { Dashboard } from '@/types'
+import type { Dashboard, Filing } from '@/types'
 
 const store = useAppStore()
 const toasts = useToasts()
@@ -31,15 +31,18 @@ const years = Array.from({ length: 5 }, (_, index) => currentYear - 3 + index)
 const year = ref(currentYear)
 const data = ref<Dashboard | null>(null)
 const loading = ref(true)
+const error = ref('')
 
 async function load() {
   loading.value = true
+  error.value = ''
   try {
     const params = new URLSearchParams({ year: String(year.value) })
     if (store.selectedId) params.set('taxpayer_id', store.selectedId)
     data.value = await api.get<Dashboard>(`/dashboard?${params}`)
-  } catch (error) {
-    toasts.error(error instanceof Error ? error.message : 'No se pudo cargar el panel')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'No se pudo cargar el panel'
+    toasts.error(error.value)
   } finally {
     loading.value = false
   }
@@ -47,6 +50,24 @@ async function load() {
 
 watch([() => store.selectedId, year], load)
 onMounted(load)
+
+const upcomingMonths = computed(() => {
+  const groups = new Map<string, Filing[]>()
+  for (const filing of data.value?.upcoming ?? []) {
+    if (!filing.due_date) continue
+    const key = filing.due_date.slice(0, 7)
+    const list = groups.get(key) ?? []
+    list.push(filing)
+    groups.set(key, list)
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, items]) => {
+      const [y, m] = key.split('-').map(Number)
+      const month = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(y, m - 1, 1))
+      return { key, label: `${month} ${y}`, items }
+    })
+})
 </script>
 
 <template>
@@ -56,7 +77,7 @@ onMounted(load)
       subtitle="Plazos, modelos y documentación del contribuyente activo. Todo se calcula y guarda en este equipo."
     >
       <template #actions>
-        <select v-model.number="year" class="input w-auto">
+        <select v-model.number="year" class="input w-auto" aria-label="Ejercicio">
           <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
         </select>
         <RouterLink to="/calendario" class="btn-ghost">
@@ -65,6 +86,12 @@ onMounted(load)
         </RouterLink>
       </template>
     </PageHeader>
+
+    <div v-if="error" class="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      <AlertTriangle class="h-4 w-4 shrink-0" />
+      <span class="min-w-0 flex-1">{{ error }}</span>
+      <button class="btn-ghost" @click="load">Reintentar</button>
+    </div>
 
     <div v-if="!store.loading && !store.hasTaxpayers" class="card card-pad">
       <div class="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
@@ -87,22 +114,50 @@ onMounted(load)
 
     <template v-else>
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Vencen en 45 días" :value="data?.due_soon ?? '—'" tone="amber" hint="Revisa la documentación con tiempo">
+        <StatCard
+          label="Vencen en 45 días"
+          :value="data?.due_soon ?? '—'"
+          tone="amber"
+          hint="Revisa la documentación con tiempo"
+          to="/calendario?range=next45"
+        >
           <template #icon><CalendarClock class="h-5 w-5" /></template>
         </StatCard>
-        <StatCard label="Vencidos" :value="data?.overdue ?? '—'" tone="rose" hint="Pendientes de regularizar">
+        <StatCard
+          label="Vencidos sin presentar"
+          :value="data?.overdue ?? '—'"
+          tone="rose"
+          hint="Fuera de plazo en el ejercicio"
+          to="/calendario?range=overdue"
+        >
           <template #icon><AlertTriangle class="h-5 w-5" /></template>
         </StatCard>
-        <StatCard label="Pendientes" :value="data?.pending ?? '—'" tone="sky" hint="En el ejercicio seleccionado">
+        <StatCard
+          label="Pendientes en plazo"
+          :value="data?.pending ?? '—'"
+          tone="sky"
+          hint="Aún puedes presentarlos"
+          to="/calendario?range=open"
+        >
           <template #icon><FileClock class="h-5 w-5" /></template>
         </StatCard>
-        <StatCard label="Presentados" :value="data?.presented ?? '—'" tone="emerald" hint="Con justificante archivado">
+        <StatCard
+          label="Presentados"
+          :value="data?.presented ?? '—'"
+          tone="emerald"
+          :hint="
+            data
+              ? `${data.presented_with_receipt} con justificante · ${data.presented_without_receipt} sin justificante`
+              : 'Con o sin justificante archivado'
+          "
+          to="/calendario?range=all&status=presented"
+        >
           <template #icon><CheckCircle2 class="h-5 w-5" /></template>
         </StatCard>
       </div>
 
-      <div class="mt-6 grid gap-6 lg:grid-cols-3">
-        <section class="lg:col-span-2">
+      <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section class="min-w-0 lg:col-span-2">
           <div class="mb-3 flex items-center justify-between">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Próximos vencimientos</h2>
             <RouterLink to="/calendario" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900">
@@ -112,8 +167,24 @@ onMounted(load)
           <div v-if="loading" class="space-y-2">
             <div v-for="i in 4" :key="i" class="h-[74px] animate-pulse rounded-2xl bg-white" />
           </div>
-          <div v-else-if="data?.upcoming.length" class="space-y-2">
-            <FilingItem v-for="filing in data.upcoming" :key="filing.id" :filing="filing" show-entity />
+          <div v-else-if="data?.upcoming.length" class="space-y-5">
+            <section v-for="month in upcomingMonths" :key="month.key" class="space-y-2">
+              <div class="flex items-center gap-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  {{ month.label }}
+                </h3>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                  {{ month.items.length }}
+                </span>
+                <span class="h-px flex-1 bg-slate-200" aria-hidden="true" />
+              </div>
+              <FilingItem
+                v-for="filing in month.items"
+                :key="filing.id"
+                :filing="filing"
+                show-entity
+              />
+            </section>
           </div>
           <EmptyState
             v-else
@@ -127,7 +198,7 @@ onMounted(load)
           </EmptyState>
         </section>
 
-        <aside class="space-y-4">
+        <aside class="min-w-0 space-y-4">
           <div class="card card-pad">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Carga por entidad</h2>
             <div class="mt-4 space-y-3">
@@ -148,7 +219,7 @@ onMounted(load)
           <div class="card card-pad">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Accesos rápidos</h2>
             <div class="mt-3 grid gap-2">
-              <RouterLink to="/facturas" class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <RouterLink to="/facturas?nueva=1" class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 <ReceiptText class="h-4 w-4 text-slate-400" /> Registrar factura
               </RouterLink>
               <RouterLink to="/documentos" class="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">

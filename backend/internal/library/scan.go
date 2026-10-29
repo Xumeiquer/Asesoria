@@ -357,9 +357,13 @@ func (s *Service) Ingest(ctx context.Context, in UploadInput) (domain.Document, 
 	}
 
 	text, ocrStatus, _ := ExtractFile(ctx, tmpName, s.OCRLang(ctx))
+	inferred := make([]string, 0, 4)
 	date := strings.TrimSpace(in.DocDate)
 	if date == "" {
 		date = dateFromText(text)
+		if date != "" {
+			inferred = append(inferred, "fecha")
+		}
 	}
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
@@ -369,10 +373,32 @@ func (s *Service) Ingest(ctx context.Context, in UploadInput) (domain.Document, 
 	if kind == "" || kind == "other" {
 		if fromName := kindFromFilename([]string{in.Filename}); fromName != "" {
 			kind = fromName
+			inferred = append(inferred, "tipo")
+		} else if fromText := kindFromText(text); fromText != "" {
+			kind = fromText
+			inferred = append(inferred, "tipo")
 		}
 	}
 	if kind == "" {
 		kind = "other"
+	}
+	amount := in.AmountCents
+	if amount == nil {
+		if detected := amountFromText(text); detected != nil {
+			amount = detected
+			inferred = append(inferred, "importe")
+		}
+	}
+	counterpartyNIF := strings.ToUpper(strings.TrimSpace(in.CounterpartyNIF))
+	if counterpartyNIF == "" {
+		if detected := counterparty(findNIFs(text), &in.Taxpayer); detected != "" {
+			counterpartyNIF = detected
+			inferred = append(inferred, "nif")
+		}
+	}
+	reviewStatus := "ok"
+	if len(inferred) > 0 {
+		reviewStatus = "review"
 	}
 	rel := Destination(root, in.Taxpayer, year, period, kind, in.Filename)
 	absDest := filepath.Join(root, filepath.FromSlash(rel))
@@ -403,14 +429,16 @@ func (s *Service) Ingest(ctx context.Context, in UploadInput) (domain.Document, 
 		LibraryPath:     libRel,
 		SourcePath:      "subida",
 		DocDate:         date,
-		AmountCents:     in.AmountCents,
-		CounterpartyNIF: strings.ToUpper(strings.TrimSpace(in.CounterpartyNIF)),
+		AmountCents:     amount,
+		CounterpartyNIF: counterpartyNIF,
 		TextContent:     text,
 		OCRStatus:       ocrStatus,
-		ReviewStatus:    "ok",
+		ReviewStatus:    reviewStatus,
 		Metadata: map[string]any{
-			"original_name": in.Filename,
-			"imported":      false,
+			"original_name":   in.Filename,
+			"imported":        false,
+			"inferred_fields": inferred,
+			"review_reasons":  inferred,
 		},
 	}
 	if doc.MIME == "" {

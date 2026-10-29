@@ -8,8 +8,9 @@ const props = withDefaults(
     title: string
     subtitle?: string
     size?: 'md' | 'lg' | 'xl'
+    persistent?: boolean
   }>(),
-  { size: 'md' },
+  { size: 'md', persistent: false },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
@@ -18,7 +19,7 @@ function close() {
 }
 
 function onKey(event: KeyboardEvent) {
-  if (event.key === 'Escape') close()
+  if (event.key === 'Escape' && !props.persistent) close()
 }
 
 watch(
@@ -50,8 +51,14 @@ const widths = { md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' }
       leave-active-class="transition duration-100 ease-in"
       leave-to-class="opacity-0"
     >
-      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6">
-        <div class="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" @click="close" />
+      <div
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title"
+      >
+        <div class="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" @click="!persistent && close()" />
         <div
           class="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
           :class="widths[size]"
@@ -61,7 +68,11 @@ const widths = { md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' }
               <h2 class="text-lg font-bold tracking-tight text-slate-900">{{ title }}</h2>
               <p v-if="subtitle" class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>
             </div>
-            <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" @click="close">
+            <button
+              class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Cerrar"
+              @click="close"
+            >
               <X class="h-5 w-5" />
             </button>
           </div>

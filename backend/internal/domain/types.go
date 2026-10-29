@@ -18,20 +18,21 @@ const (
 
 // Taxpayer is the person or company the application works for.
 type Taxpayer struct {
-	ID               string `json:"id"`
-	NIF              string `json:"nif"`
-	Name             string `json:"name"`
-	LegalForm        string `json:"legal_form"`
-	Email            string `json:"email"`
-	Phone            string `json:"phone"`
-	VATRegime        string `json:"vat_regime"`
-	IRPFMethod       string `json:"irpf_method"`
-	HasEmployees     bool   `json:"has_employees"`
-	HasRentals       bool   `json:"has_rentals"`
-	EconomicActivity bool   `json:"economic_activity"`
-	CNAE             string `json:"cnae"`
-	FiscalYearEnd    string `json:"fiscal_year_end"`
-	IBAN             string `json:"iban"`
+	ID               string   `json:"id"`
+	NIF              string   `json:"nif"`
+	Name             string   `json:"name"`
+	LegalForm        string   `json:"legal_form"`
+	Email            string   `json:"email"`
+	Phone            string   `json:"phone"`
+	VATRegime        string   `json:"vat_regime"`
+	IRPFMethod       string   `json:"irpf_method"`
+	HasEmployees     bool     `json:"has_employees"`
+	HasRentals       bool     `json:"has_rentals"`
+	EconomicActivity bool     `json:"economic_activity"`
+	CNAEs            []string `json:"cnaes"`
+	FiscalYearEnd    string   `json:"fiscal_year_end"`
+	IBAN             string   `json:"iban"`
+	ActivityStart    string   `json:"activity_start"`
 
 	// RETA profile. Amounts are monthly bases and annual net-income forecasts
 	// expressed in cents. RetaBaseFrom is the first day the chosen base applies.
@@ -142,13 +143,15 @@ type APIToken struct {
 
 // Dashboard is the aggregate returned by the home endpoint.
 type Dashboard struct {
-	Taxpayers int            `json:"taxpayers"`
-	DueSoon   int            `json:"due_soon"`
-	Overdue   int            `json:"overdue"`
-	Presented int            `json:"presented"`
-	Pending   int            `json:"pending"`
-	Documents int            `json:"documents"`
-	Invoices  int            `json:"invoices"`
-	Upcoming  []Filing       `json:"upcoming"`
-	ByEntity  map[string]int `json:"by_entity"`
+	Taxpayers               int            `json:"taxpayers"`
+	DueSoon                 int            `json:"due_soon"`
+	Overdue                 int            `json:"overdue"`
+	Presented               int            `json:"presented"`
+	PresentedWithReceipt    int            `json:"presented_with_receipt"`
+	PresentedWithoutReceipt int            `json:"presented_without_receipt"`
+	Pending                 int            `json:"pending"`
+	Documents               int            `json:"documents"`
+	Invoices                int            `json:"invoices"`
+	Upcoming                []Filing       `json:"upcoming"`
+	ByEntity                map[string]int `json:"by_entity"`
 }

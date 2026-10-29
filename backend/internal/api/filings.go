@@ -158,9 +158,17 @@ func (s *Server) handleUpdateFiling(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Status != nil {
-		if !validStatus(*in.Status) {
-			writeError(w, http.StatusBadRequest, "estado no válido")
+		if !editableStatus(*in.Status) {
+			if *in.Status == domain.StatusPresented {
+				writeError(w, http.StatusBadRequest, "usa la acción «Marcar presentado» para registrar la presentación y su justificante")
+			} else {
+				writeError(w, http.StatusBadRequest, "estado no válido")
+			}
 			return
+		}
+		if f.Status == domain.StatusPresented {
+			f.PresentedAt = nil
+			f.ReceiptDocumentID = nil
 		}
 		f.Status = *in.Status
 	}
@@ -176,6 +184,60 @@ func (s *Server) handleUpdateFiling(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Store.Log(r.Context(), actor(r), "update", "filing", id, map[string]any{"status": f.Status})
 	writeJSON(w, http.StatusOK, f)
+}
+
+type bulkFilingStatusInput struct {
+	IDs    []string `json:"ids"`
+	Status string   `json:"status"`
+}
+
+func (s *Server) handleBulkFilingStatus(w http.ResponseWriter, r *http.Request) {
+	var in bulkFilingStatusInput
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, "payload no válido: "+err.Error())
+		return
+	}
+	if len(in.IDs) == 0 {
+		writeError(w, http.StatusBadRequest, "selecciona al menos un vencimiento")
+		return
+	}
+	if len(in.IDs) > 500 {
+		writeError(w, http.StatusBadRequest, "puedes actualizar como máximo 500 vencimientos a la vez")
+		return
+	}
+	switch in.Status {
+	case domain.StatusPending, domain.StatusInProgress, domain.StatusReady,
+		domain.StatusPresented, domain.StatusNotApplicable:
+	default:
+		writeError(w, http.StatusBadRequest, "estado no válido")
+		return
+	}
+	seen := make(map[string]struct{}, len(in.IDs))
+	ids := make([]string, 0, len(in.IDs))
+	for _, id := range in.IDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		writeError(w, http.StatusBadRequest, "no hay vencimientos válidos en la selección")
+		return
+	}
+	updated, err := s.Store.BulkSetFilingStatus(r.Context(), ids, in.Status)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.Store.Log(r.Context(), actor(r), "bulk_status", "filing", "", map[string]any{
+		"ids": ids, "status": in.Status, "updated": updated,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"updated": updated, "status": in.Status})
 }
 
 func (s *Server) handleCalculateFiling(w http.ResponseWriter, r *http.Request) {
@@ -254,10 +316,13 @@ func (s *Server) handlePresentFiling(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
-func validStatus(status string) bool {
+// editableStatus lists the states a user can choose directly. "presented" is
+// deliberately excluded: it is only reached through the presentation action so
+// the receipt (or its absence) is explicit. "late" is no longer a stored state;
+// it is derived from the due date.
+func editableStatus(status string) bool {
 	switch status {
-	case domain.StatusPending, domain.StatusInProgress, domain.StatusReady,
-		domain.StatusPresented, domain.StatusLate, domain.StatusNotApplicable:
+	case domain.StatusPending, domain.StatusInProgress, domain.StatusReady, domain.StatusNotApplicable:
 		return true
 	}
 	return false
