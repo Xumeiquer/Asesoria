@@ -15,6 +15,51 @@ export function formatLongDate(value: string): string {
   return longDateFormatter.format(date)
 }
 
+/** Fecha local en formato ISO (YYYY-MM-DD), sin pasar por UTC. */
+export function isoDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+export function todayISO(): string {
+  return isoDate(new Date())
+}
+
+/** Días completos hasta una fecha; negativo si ya ha vencido. */
+export function daysUntil(value: string): number {
+  const target = new Date(`${value.slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(target.getTime())) return Number.NaN
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000)
+}
+
+export type DueTone = 'normal' | 'soon' | 'late' | 'done'
+
+export function dueTone(value: string, status: string): DueTone {
+  if (status === 'presented' || status === 'not_applicable') return 'done'
+  const days = daysUntil(value)
+  if (!Number.isFinite(days)) return 'normal'
+  if (days < 0) return 'late'
+  if (days <= 7) return 'soon'
+  return 'normal'
+}
+
+/** Texto relativo equivalente al bloque «Próximos vencimientos» de la webapp. */
+export function dueLabel(value: string, status: string): string {
+  if (!value) return '—'
+  if (status === 'presented' || status === 'not_applicable') return formatLongDate(value)
+  const days = daysUntil(value)
+  if (!Number.isFinite(days)) return formatLongDate(value)
+  if (days < 0) {
+    const count = Math.abs(days)
+    return `Vencido hace ${count} ${count === 1 ? 'día' : 'días'}`
+  }
+  if (days === 0) return 'Vence hoy'
+  return `Vence en ${days} ${days === 1 ? 'día' : 'días'}`
+}
+
 export const statusLabels: Record<string, string> = {
   pending: 'Pendiente',
   in_progress: 'En curso',

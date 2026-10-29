@@ -18,7 +18,7 @@ MVP funcional. Incluye:
 - Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
 - Perfil RETA por autónomo: previsión anual de rendimientos netos, base de cotización mensual con fecha de vigencia e historial de cambios. La base se valida contra la tabla general y reducida de 2026; no cubre particularidades como pluriactividad o actividades artísticas.
 - Biblioteca documental gestionada en una carpeta del equipo, con árbol por contribuyente/año/trimestre/tipo, escaneo incremental, extracción de texto y OCR local opcional.
-- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles, descarga de documentos y relleno asistido con revisión previa (303/2026; 130/2026 en preparación).
+- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, próximos vencimientos, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles, descarga de documentos y relleno asistido con revisión previa (303/2026; 130/2026 en preparación).
 - Datos de demostración con `-demo`.
 
 Todavía **no** firma ni presenta modelos, no custodia certificados y no emite facturas. El 303/2026 se puede rellenar con revisión previa; el resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente, y sus casillas no se calculan.
@@ -201,6 +201,13 @@ npm run build       # genera extension/dist
 5. Abre el popup de la extensión, pega el código y pulsa **Conectar**.
 
 El código caduca en 10 minutos y solo puede usarse una vez. El token resultante se guarda en `chrome.storage.local`, se guarda hasheado en el servidor y puede revocarse desde **Ajustes → Accesos de extensiones**. Los tokens de extensión son **solo de lectura**: no pueden crear, modificar ni borrar datos del ERP.
+
+### Qué hace el popup
+
+- Muestra el **contribuyente** seleccionado, con nombre y NIF, y permite filtrar por él o ver todos.
+- Muestra los **próximos 8 vencimientos** desde hoy, agrupados por mes, con la fecha exacta y una cuenta atrás («Vence hoy», «Vence en X días»).
+- Permite cambiar a **Todos** para consultar el resto de expedientes abiertos, incluidos los vencidos, y buscar por modelo, periodo o NIF.
+- Al abrir un expediente, lo marca como activo para el panel de la sede.
 
 ### Qué hace el panel de la sede
 
