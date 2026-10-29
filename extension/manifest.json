@@ -8,6 +8,7 @@
     "http://127.0.0.1/*",
     "http://localhost/*",
     "https://sede.agenciatributaria.gob.es/*",
+    "https://www2.agenciatributaria.gob.es/*",
     "https://*.seg-social.gob.es/*",
     "https://*.registradores.org/*"
   ],
@@ -28,6 +29,7 @@
     {
       "matches": [
         "https://sede.agenciatributaria.gob.es/*",
+        "https://www2.agenciatributaria.gob.es/*",
         "https://*.seg-social.gob.es/*",
         "https://*.registradores.org/*"
       ],

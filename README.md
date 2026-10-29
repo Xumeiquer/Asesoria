@@ -18,10 +18,10 @@ MVP funcional. Incluye:
 - Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
 - Perfil RETA por autónomo: previsión anual de rendimientos netos, base de cotización mensual con fecha de vigencia e historial de cambios. La base se valida contra la tabla general y reducida de 2026; no cubre particularidades como pluriactividad o actividades artísticas.
 - Biblioteca documental gestionada en una carpeta del equipo, con árbol por contribuyente/año/trimestre/tipo, escaneo incremental, extracción de texto y OCR local opcional.
-- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles y descarga de documentos.
+- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles, descarga de documentos y relleno asistido con revisión previa (303/2026; 130/2026 en preparación).
 - Datos de demostración con `-demo`.
 
-Todavía **no** presenta modelos, no custodia certificados y no emite facturas. El resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente; sus casillas no se calculan.
+Todavía **no** firma ni presenta modelos, no custodia certificados y no emite facturas. El 303/2026 se puede rellenar con revisión previa; el resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente, y sus casillas no se calculan.
 
 ## Arquitectura
 
@@ -189,6 +189,8 @@ No expongas el servidor en una interfaz pública. El modelo de seguridad asume l
 ```bash
 cd extension
 npm ci
+npm run check       # typecheck
+npm test            # pruebas del motor de adaptadores
 npm run build       # genera extension/dist
 ```
 
@@ -204,18 +206,32 @@ El código caduca en 10 minutos y solo puede usarse una vez. El token resultante
 
 - Detecta el expediente abierto desde el popup y muestra modelo, periodo, vencimiento, estado, casillas calculadas, avisos y documentos.
 - Permite copiar una casilla, copiar todas o descargar documentos.
+- Si hay un adaptador verificado para el modelo y ejercicio, muestra **Revisar relleno**: enseña qué campos cambian, el valor actual y el nuevo, y solo escribe cuando se pulsa **Aplicar relleno**.
 - Abre el ERP o la sede oficial.
 - Se cierra con la X y limpia el expediente activo.
 
 ### Adaptadores de formulario
 
-`extension/src/adapters/index.ts` define un motor declarativo (`wait`, `set`, `select`, `click`, `pause`) y **no incluye ningún adaptador verificado**. El panel funciona siempre como asistente manual. Para habilitar relleno automático:
+`extension/src/adapters/` contiene adaptadores declarativos, versionados por modelo y ejercicio. El motor resuelve valores del expediente, aplica formatos (importes con coma decimal, fechas, NIF), comprueba que la página es la correcta y separa la previsualización de la escritura. **Nunca pulsa «Firmar», «Presentar» ni ningún botón de envío.**
 
-1. Verifica los selectores contra el formulario oficial del ejercicio concreto.
-2. Añade el adaptador con `verified: true` solo después de probarlo.
-3. Termina siempre con un paso `pause` para que el usuario revise y firme.
+Estado actual:
 
-La extensión no rellena, envía ni firma sin intervención del usuario, y nunca solicita ni lee el certificado.
+| Modelo | Ejercicio | Estado | Validación |
+| --- | --- | --- | --- |
+| 303 | 2026 | Verificado | Simulador público oficial `A303-FWME/E2026/OPEN` |
+| 130 | 2026 | En preparación | Pendiente de HTML saneado del formulario autenticado |
+
+El 303 rellena las casillas editables del régimen general (bases y cuotas devengadas/deducibles, incluidos los tipos 0, 4, 10 y 21 %). No se escriben las casillas que calcula la AEAT. El 130 mantiene el adaptador preparado, pero no se activa hasta validar sus selectores.
+
+Para añadir un modelo o ejercicio:
+
+1. Abre el formulario oficial (o su simulador) y localiza selectores estables por `aria-label`, etiqueta o estructura; no uses IDs dinámicos de ZK.
+2. Crea un adaptador en `extension/src/adapters/` con `page.contains`, `fields` y `verified: false`.
+3. Añade el caso al registro de `extension/src/adapters/index.ts`.
+4. Verifica la previsualización y la escritura contra el formulario real del ejercicio.
+5. Cambia `verified` a `true` solo cuando la prueba haya pasado y documenta contra qué se validó.
+
+La extensión no accede al certificado, Cl@ve, DNIe ni a la clave de firma. Tampoco rellena expedientes presentados o no aplicables, ni automatiza la presentación.
 
 ## Desarrollo, issues y releases
 
@@ -253,10 +269,10 @@ Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 a
 
 Solo 303 y 130 tienen calculadora:
 
-- **303**: casillas 01–28 (bases, tipos, cuotas devengadas/deducibles y resultado del régimen general).
+- **303**: casillas 150, 152, 01–15 y 27–46 (bases, tipos, cuotas devengadas/deducibles, totales y resultado del régimen general). Las correspondencias se han validado contra las instrucciones oficiales de 2026.
 - **130**: casillas 01–07 (ingresos, gastos, rendimiento neto, 20 %, retenciones y pagos previos).
 
-Los cálculos usan las facturas del periodo y contribuyente. **Las correspondencias de casillas están pendientes de validar contra el formulario oficial de 2026**; la interfaz muestra este aviso. Los regímenes especiales de IVA no están cubiertos.
+Los cálculos usan las facturas del periodo y contribuyente. El 303 cubre los tipos de IVA del 0, 4, 10 y 21 %; los regímenes especiales, el recargo de equivalencia y otros tipos (incluido el 5 % transitorio) quedan fuera y se muestran como avisos para revisión manual. El 130 sigue pendiente de validar contra el formulario oficial.
 
 ## Seguridad y privacidad
 
@@ -300,7 +316,7 @@ extension/
   src/popup.ts         emparejamiento y listado
   src/options.ts       ajustes y estado de conexión
   src/content.ts       panel sobre la sede
-  src/adapters/        motor declarativo (sin adaptadores verificados)
+  src/adapters/        motor declarativo y adaptadores 303/130
   src/background.ts    router de mensajes y descargas
 .github/
   workflows/           CI, release y automatización de etiquetas

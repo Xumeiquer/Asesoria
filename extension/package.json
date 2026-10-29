@@ -6,11 +6,13 @@
   "scripts": {
     "build": "tsc --noEmit && node build.mjs",
     "watch": "node build.mjs --watch",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",
     "esbuild": "^0.28.2",
+    "linkedom": "^0.18.14",
     "typescript": "~5.9.3"
   }
 }

@@ -72,6 +72,7 @@ jobs:
           mkdir -p release
           cd extension
           npm ci --no-audit --no-fund
+          npm test
           node -e "const fs=require('node:fs');const p='manifest.json';const m=JSON.parse(fs.readFileSync(p,'utf8'));m.version=process.env.VERSION;fs.writeFileSync(p,JSON.stringify(m,null,2)+'\n')"
           npm run build
           cd dist

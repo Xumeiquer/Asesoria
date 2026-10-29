@@ -89,3 +89,7 @@ jobs:
       - name: Typecheck y build
         working-directory: extension
         run: npm run build
+
+      - name: Tests
+        working-directory: extension
+        run: npm test

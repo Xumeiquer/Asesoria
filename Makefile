@@ -43,12 +43,12 @@ dev-web:
 test:
 	cd backend && go test ./...
 	cd web && npm run build
-	cd extension && npm run check
+	cd extension && npm run check && npm test
 
 check:
 	cd backend && test -z "$$(gofmt -l .)" && go vet ./...
 	cd web && npx vue-tsc --noEmit
-	cd extension && npm run check
+	cd extension && npm run check && npm test
 
 clean:
 	rm -rf bin web/dist extension/dist extension/*.js $(WEB_DIST)
