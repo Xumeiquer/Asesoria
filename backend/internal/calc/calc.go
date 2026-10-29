@@ -73,13 +73,16 @@ func (r *Result) warn(format string, args ...any) {
 	r.Warnings = append(r.Warnings, fmt.Sprintf(format, args...))
 }
 
-// calc303 implements the general VAT regime of the 303 form. Casillas 01-28 are
-// the stable core of the form; special regimes are out of scope for now.
+// calc303 implements the general VAT regime of the 303 form. The casilla numbers
+// follow the official 2026 instructions. Special regimes and recargo de
+// equivalencia remain out of scope and are reported as warnings.
 func calc303(invoices []domain.Invoice) *Result {
-	r := newResult("303", "2026.1")
+	r := newResult("303", "2026.2")
 
-	var issued21, issued21VAT, issued10, issued10VAT, issued4, issued4VAT, issuedOther, issuedOtherVAT int64
-	var invBase, invVAT, importsBase, importsVAT, interiorBase, interiorVAT int64
+	var issued0, issued0VAT, issued4, issued4VAT int64
+	var issued10, issued10VAT, issued21, issued21VAT int64
+	var issuedOther, issuedOtherVAT int64
+	var investmentBase, investmentVAT, importsBase, importsVAT, interiorBase, interiorVAT int64
 	var issuedCount, receivedCount int
 
 	for _, inv := range invoices {
@@ -87,15 +90,18 @@ func calc303(invoices []domain.Invoice) *Result {
 		case domain.DirectionIssued:
 			issuedCount++
 			switch inv.VATRate {
-			case 2100:
-				issued21 += inv.BaseCents
-				issued21VAT += inv.VATCents
-			case 1000:
-				issued10 += inv.BaseCents
-				issued10VAT += inv.VATCents
+			case 0:
+				issued0 += inv.BaseCents
+				issued0VAT += inv.VATCents
 			case 400:
 				issued4 += inv.BaseCents
 				issued4VAT += inv.VATCents
+			case 1000:
+				issued10 += inv.BaseCents
+				issued10VAT += inv.VATCents
+			case 2100:
+				issued21 += inv.BaseCents
+				issued21VAT += inv.VATCents
 			default:
 				issuedOther += inv.BaseCents
 				issuedOtherVAT += inv.VATCents
@@ -104,8 +110,8 @@ func calc303(invoices []domain.Invoice) *Result {
 			receivedCount++
 			switch inv.Category {
 			case "inversion":
-				invBase += inv.BaseCents
-				invVAT += inv.VATCents
+				investmentBase += inv.BaseCents
+				investmentVAT += inv.VATCents
 			case "importacion":
 				importsBase += inv.BaseCents
 				importsVAT += inv.VATCents
@@ -116,30 +122,56 @@ func calc303(invoices []domain.Invoice) *Result {
 		}
 	}
 
-	r.add("01", "Base imponible al 21%", issued21, "base")
-	r.set("02", "Tipo impositivo", "21", "tipo")
-	r.add("03", "Cuota devengada al 21%", issued21VAT, "cuota")
+	r.add("150", "Base imponible al 0%", issued0, "base")
+	r.set("151", "Tipo impositivo", "0", "tipo")
+	r.add("152", "Cuota devengada al 0%", issued0VAT, "cuota")
+
+	r.add("01", "Base imponible al 4%", issued4, "base")
+	r.set("02", "Tipo impositivo", "4", "tipo")
+	r.add("03", "Cuota devengada al 4%", issued4VAT, "cuota")
+
 	r.add("04", "Base imponible al 10%", issued10, "base")
 	r.set("05", "Tipo impositivo", "10", "tipo")
 	r.add("06", "Cuota devengada al 10%", issued10VAT, "cuota")
-	r.add("07", "Base imponible al 4%", issued4, "base")
-	r.set("08", "Tipo impositivo", "4", "tipo")
-	r.add("09", "Cuota devengada al 4%", issued4VAT, "cuota")
-	r.add("10", "Base imponible a otros tipos", issuedOther, "base")
-	r.add("12", "Cuota devengada a otros tipos", issuedOtherVAT, "cuota")
-	r.add("16", "Total cuota devengada", issued21VAT+issued10VAT+issued4VAT+issuedOtherVAT, "resultado")
 
-	r.add("17", "Base deducible en bienes de inversión", invBase, "base")
-	r.add("18", "Cuota deducible en bienes de inversión", invVAT, "cuota")
-	r.add("21", "Base deducible en importaciones", importsBase, "base")
-	r.add("22", "Cuota deducible en importaciones", importsVAT, "cuota")
-	r.add("23", "Base deducible en operaciones interiores", interiorBase, "base")
-	r.add("24", "Cuota deducible en operaciones interiores", interiorVAT, "cuota")
-	r.add("27", "Total cuota deducible", invVAT+importsVAT+interiorVAT, "resultado")
+	r.add("07", "Base imponible al 21%", issued21, "base")
+	r.set("08", "Tipo impositivo", "21", "tipo")
+	r.add("09", "Cuota devengada al 21%", issued21VAT, "cuota")
 
-	devengado := issued21VAT + issued10VAT + issued4VAT + issuedOtherVAT
-	deducible := invVAT + importsVAT + interiorVAT
-	r.add("28", "Resultado del régimen general", devengado-deducible, "resultado")
+	// La calculadora actual no desglosa adquisiciones intracomunitarias ni
+	// operaciones con inversión del sujeto pasivo. Se dejan a cero para que el
+	// formulario conserve sus propios valores y el usuario los revise.
+	r.add("10", "Adquisiciones intracomunitarias de bienes y servicios", 0, "base")
+	r.add("11", "Cuota devengada por adquisiciones intracomunitarias", 0, "cuota")
+	r.add("12", "Otras operaciones con inversión del sujeto pasivo", 0, "base")
+	r.add("13", "Cuota devengada por otras operaciones con inversión del sujeto pasivo", 0, "cuota")
+	r.add("14", "Modificación de bases", 0, "base")
+	r.add("15", "Modificación de cuotas", 0, "cuota")
+
+	r.add("28", "Base deducible en operaciones interiores corrientes", interiorBase, "base")
+	r.add("29", "Cuota deducible en operaciones interiores corrientes", interiorVAT, "cuota")
+	r.add("30", "Base deducible en bienes de inversión", investmentBase, "base")
+	r.add("31", "Cuota deducible en bienes de inversión", investmentVAT, "cuota")
+	r.add("32", "Base deducible en importaciones de bienes corrientes", importsBase, "base")
+	r.add("33", "Cuota deducible en importaciones de bienes corrientes", importsVAT, "cuota")
+	r.add("34", "Base deducible en importaciones de bienes de inversión", 0, "base")
+	r.add("35", "Cuota deducible en importaciones de bienes de inversión", 0, "cuota")
+	r.add("36", "Base deducible en adquisiciones intracomunitarias corrientes", 0, "base")
+	r.add("37", "Cuota deducible en adquisiciones intracomunitarias corrientes", 0, "cuota")
+	r.add("38", "Base deducible en adquisiciones intracomunitarias de bienes de inversión", 0, "base")
+	r.add("39", "Cuota deducible en adquisiciones intracomunitarias de bienes de inversión", 0, "cuota")
+	r.add("40", "Rectificación de deducciones (base)", 0, "base")
+	r.add("41", "Rectificación de deducciones (cuota)", 0, "cuota")
+	r.add("42", "Compensaciones Régimen Especial A.G. y P.", 0, "cuota")
+	r.add("43", "Regularización de bienes de inversión", 0, "cuota")
+	r.add("44", "Regularización por porcentaje definitivo de prorrata", 0, "cuota")
+
+	devengado := issued0VAT + issued4VAT + issued10VAT + issued21VAT
+	deducible := interiorVAT + investmentVAT + importsVAT
+	r.add("27", "Total cuota devengada", devengado, "resultado")
+	r.add("45", "Total a deducir", deducible, "resultado")
+	r.add("46", "Resultado del régimen general", devengado-deducible, "resultado")
+	r.add("71", "Resultado de la liquidación", devengado-deducible, "resultado")
 
 	if issuedCount == 0 {
 		r.warn("No hay facturas emitidas en el periodo: revisa que el periodo sea correcto antes de presentar.")
@@ -147,10 +179,13 @@ func calc303(invoices []domain.Invoice) *Result {
 	if receivedCount == 0 {
 		r.warn("No hay facturas recibidas en el periodo: si tienes gastos deducibles, añádelos.")
 	}
+	if issuedOther != 0 {
+		r.warn("Hay facturas emitidas con tipos de IVA distintos de 0, 4, 10 o 21 %% (%s € de base y %s € de cuota): el resultado no incluye esas cuotas y debes revisarlo manualmente.", formatCents(issuedOther), formatCents(issuedOtherVAT))
+	}
 	if devengado-deducible < 0 {
 		r.warn("El resultado es negativo: se compensará en liquidaciones siguientes según corresponda.")
 	}
-	r.warn("Casillas 01-28 pendientes de validar contra el formulario oficial del ejercicio 2026. Los regímenes especiales no están cubiertos.")
+	r.warn("Casillas 01-46 validadas contra las instrucciones oficiales de 2026. Los regímenes especiales, el recargo de equivalencia y los tipos distintos de 0, 4, 10 y 21 %% no están cubiertos.")
 	return r
 }
 
