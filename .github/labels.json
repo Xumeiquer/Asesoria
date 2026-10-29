@@ -1,0 +1,47 @@
+[
+  {
+    "name": "enhancement",
+    "color": "a2eeef",
+    "description": "Nueva funcionalidad o mejora"
+  },
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Algo no funciona como debería"
+  },
+  {
+    "name": "security",
+    "color": "b60205",
+    "description": "Seguridad, privacidad o permisos"
+  },
+  {
+    "name": "documentation",
+    "color": "0075ca",
+    "description": "Documentación y guías"
+  },
+  {
+    "name": "dependencies",
+    "color": "0366d6",
+    "description": "Actualización de dependencias"
+  },
+  {
+    "name": "ci",
+    "color": "1d76db",
+    "description": "Integración continua, builds y releases"
+  },
+  {
+    "name": "refactor",
+    "color": "5319e7",
+    "description": "Refactor sin cambio de comportamiento"
+  },
+  {
+    "name": "chore",
+    "color": "cfd3d7",
+    "description": "Mantenimiento y tareas menores"
+  },
+  {
+    "name": "skip-changelog",
+    "color": "ededed",
+    "description": "No incluir en el changelog de la release"
+  }
+]

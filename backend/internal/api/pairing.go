@@ -87,11 +87,12 @@ func (s *Server) requireWeb(w http.ResponseWriter, r *http.Request) bool {
 // --- extension --------------------------------------------------------------
 
 type extensionFiling struct {
-	Filing       domain.Filing `json:"filing"`
-	TaxpayerName string        `json:"taxpayer_name"`
-	TaxpayerNIF  string        `json:"taxpayer_nif"`
-	ModelURL     string        `json:"model_url"`
-	Calculator   bool          `json:"calculator"`
+	Filing                domain.Filing `json:"filing"`
+	TaxpayerName          string        `json:"taxpayer_name"`
+	TaxpayerNIF           string        `json:"taxpayer_nif"`
+	TaxpayerFiscalYearEnd string        `json:"taxpayer_fiscal_year_end"`
+	ModelURL              string        `json:"model_url"`
+	Calculator            bool          `json:"calculator"`
 }
 
 type extensionDocument struct {
@@ -140,11 +141,12 @@ func (s *Server) handleExtensionFilings(w http.ResponseWriter, r *http.Request) 
 		t := byID[f.TaxpayerID]
 		model, _ := s.Catalog.Get(f.ModelCode)
 		out = append(out, extensionFiling{
-			Filing:       f,
-			TaxpayerName: t.Name,
-			TaxpayerNIF:  t.NIF,
-			ModelURL:     model.URL,
-			Calculator:   f.ModelCode == "303" || f.ModelCode == "130",
+			Filing:                f,
+			TaxpayerName:          t.Name,
+			TaxpayerNIF:           t.NIF,
+			TaxpayerFiscalYearEnd: t.FiscalYearEnd,
+			ModelURL:              model.URL,
+			Calculator:            f.ModelCode == "303" || f.ModelCode == "130",
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

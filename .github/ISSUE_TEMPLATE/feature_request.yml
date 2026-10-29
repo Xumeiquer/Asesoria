@@ -1,0 +1,69 @@
+name: Propuesta de mejora
+description: Nueva funcionalidad o cambio de comportamiento
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe el problema antes que la solución. Así podemos valorar alternativas y encajar la propuesta con el resto del proyecto.
+
+        Ten en cuenta el alcance actual: la aplicación es local-first, de un único usuario y no presenta modelos ni firma con certificado.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Explica la necesidad o la limitación actual.
+      placeholder: Cuando preparo el modelo 303 de varios trimestres...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solucion
+    attributes:
+      label: Solución propuesta
+      description: ¿Cómo te gustaría que funcionara?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: Otras opciones, workarounds o ideas descartadas.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área principal
+      options:
+        - ERP / backend
+        - Interfaz web
+        - Extensión de navegador
+        - Catálogo o cálculos fiscales
+        - Documentación
+        - Instalación, build o release
+        - Otro
+    validations:
+      required: true
+
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto adicional
+      description: Ejemplos, bocetos, modelos afectados o cualquier detalle útil.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: comprobaciones
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: He buscado si ya existe una propuesta parecida.
+          required: true
+        - label: Entiendo que la propuesta puede ajustarse o descartarse según el alcance del proyecto.
+          required: true

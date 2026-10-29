@@ -20,7 +20,8 @@ import (
 	"github.com/Xumeiquer/asesoria/internal/store"
 )
 
-const version = "0.1.0"
+// version se sobrescribe en las releases con -ldflags "-X main.version=...".
+var version = "0.1.0"
 
 func main() {
 	cfg := config.Load()

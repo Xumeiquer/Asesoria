@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag existente que se va a publicar (por ejemplo, v0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    name: Compilar y publicar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar tag y calcular versión
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Tag no válido: $RELEASE_TAG" >&2
+            echo "Usa el formato vX.Y.Z, por ejemplo v0.2.0." >&2
+            exit 1
+          fi
+          echo "VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            extension/package-lock.json
+
+      - name: Tests del backend
+        working-directory: backend
+        run: go test ./...
+
+      - name: Compilar web
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Compilar extensión
+        run: |
+          mkdir -p release
+          cd extension
+          npm ci --no-audit --no-fund
+          node -e "const fs=require('node:fs');const p='manifest.json';const m=JSON.parse(fs.readFileSync(p,'utf8'));m.version=process.env.VERSION;fs.writeFileSync(p,JSON.stringify(m,null,2)+'\n')"
+          npm run build
+          cd dist
+          zip -qr "../../release/asesoria-extension_${VERSION}.zip" .
+
+      - name: Incrustar la web en el binario
+        run: |
+          rm -rf backend/internal/webapp/dist
+          mkdir -p backend/internal/webapp/dist
+          cp -a web/dist/. backend/internal/webapp/dist/
+          touch backend/internal/webapp/dist/.keep
+
+      - name: Compilar binarios
+        run: |
+          mkdir -p release
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            ext=""
+            if [ "$os" = "windows" ]; then
+              ext=".exe"
+            fi
+            name="asesoria_${VERSION}_${os}_${arch}${ext}"
+            echo "Compilando ${name}"
+            (
+              cd backend
+              CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+                go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+                -o "../release/${name}" ./cmd/asesoria
+            )
+          done
+
+      - name: Generar checksums
+        run: |
+          cd release
+          sha256sum asesoria_* asesoria-extension_*.zip > SHA256SUMS
+
+      - name: Guardar artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release/
+          retention-days: 7
+
+      - name: Crear release con changelog por categorías
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" release/* \
+            --title "Asesoría $RELEASE_TAG" \
+            --generate-notes \
+            --verify-tag

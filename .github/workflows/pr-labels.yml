@@ -1,0 +1,61 @@
+name: Etiquetar pull request
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  labels:
+    name: Etiqueta según el título
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aplicar etiqueta de release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title.trim().toLowerCase()
+            const match = title.match(/^([a-z]+)(?:\([^)]*\))?!?:/)
+            if (!match) return
+
+            const prefixes = {
+              feat: "enhancement",
+              feature: "enhancement",
+              fix: "bug",
+              bug: "bug",
+              docs: "documentation",
+              doc: "documentation",
+              chore: "chore",
+              refactor: "refactor",
+              ci: "ci",
+              build: "ci",
+              deps: "dependencies",
+              security: "security",
+            }
+            const desired = prefixes[match[1]]
+            if (!desired) return
+
+            const managed = [...new Set(Object.values(prefixes))]
+            const current = context.payload.pull_request.labels.map((label) => label.name)
+            const toRemove = current.filter((name) => managed.includes(name) && name !== desired)
+
+            for (const name of toRemove) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                name,
+              }).catch(() => {})
+            }
+
+            if (!current.includes(desired)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: [desired],
+              })
+            }

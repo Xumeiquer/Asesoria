@@ -92,7 +92,11 @@ export async function claimPairing(apiUrl: string, code: string, name: string): 
 }
 
 export async function listFilings(): Promise<ExtensionFiling[]> {
-  return apiFetch<ExtensionFiling[]>('/api/extension/filings?limit=100')
+  return apiFetch<ExtensionFiling[]>('/api/extension/filings?limit=500')
+}
+
+export async function fetchContext(id: string): Promise<ExtensionContext> {
+  return apiFetch<ExtensionContext>(`/api/extension/context/${encodeURIComponent(id)}`)
 }
 
 export async function getContext(): Promise<{ context: ExtensionContext | null; apiUrl: string }> {
@@ -101,7 +105,7 @@ export async function getContext(): Promise<{ context: ExtensionContext | null; 
   const id = String(stored.activeFilingId || '')
   if (!id) return { context: null, apiUrl }
   try {
-    const context = await apiFetch<ExtensionContext>(`/api/extension/context/${id}`)
+    const context = await fetchContext(id)
     return { context, apiUrl }
   } catch {
     return { context: null, apiUrl }

@@ -1,8 +1,8 @@
 import {
   apiBlob,
-  apiFetch,
   claimPairing,
   clearConfig,
+  fetchContext,
   getConfig,
   getContext,
   listFilings,
@@ -50,6 +50,17 @@ async function handle(message: Message): Promise<unknown> {
 
     case 'GET_CONTEXT': {
       return getContext()
+    }
+
+    case 'SET_ACTIVE': {
+      const id = String(message.id || '')
+      if (!id) throw new Error('Expediente no válido')
+      const stored = await chrome.storage.session.get('activeFilingId')
+      if (String(stored.activeFilingId || '') === id) return { ok: true }
+      // Solo recordamos expedientes que existen y que este acceso puede leer.
+      await fetchContext(id)
+      await chrome.storage.session.set({ activeFilingId: id })
+      return { ok: true }
     }
 
     case 'CLEAR_ACTIVE': {

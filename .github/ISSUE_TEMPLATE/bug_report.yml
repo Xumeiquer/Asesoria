@@ -1,0 +1,104 @@
+name: Informe de error
+description: Algo no funciona como debería
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por dedicar un momento a describir el problema. Cuanta más información concreta, más fácil será reproducirlo y corregirlo.
+
+        No incluyas datos personales, certificados, contraseñas ni bases de datos reales. Para probar, usa `-demo` o datos ficticios.
+
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: ¿Qué ocurre y en qué parte de la aplicación?
+      placeholder: Al abrir un expediente, el calendario muestra...
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      description: Indica la secuencia mínima de acciones.
+      placeholder: |
+        1. Arrancar con `./bin/asesoria -demo`
+        2. Entrar en ...
+        3. Pulsar ...
+        4. Ver ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado
+      description: ¿Qué debería haber ocurrido?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Resultado actual
+      description: ¿Qué ocurre realmente? Incluye mensajes de error si los hay.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - ERP / backend
+        - Interfaz web
+        - Extensión de navegador
+        - Catálogo o cálculos fiscales
+        - Documentación
+        - Instalación, build o release
+        - Otro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operativo
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Otro
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión o commit
+      description: Versión que muestra la aplicación o el hash del commit.
+      placeholder: v0.1.0 / f1f72b4
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o capturas
+      description: Pega aquí la salida relevante. Elimina antes cualquier dato sensible.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: comprobaciones
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: He buscado si ya existe una issue con el mismo problema.
+          required: true
+        - label: He revisado que no incluyo datos personales, certificados ni secretos.
+          required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentación del proyecto
+    url: https://github.com/Xumeiquer/Asesoria/blob/main/README.md
+    about: Instalación, uso, arquitectura y guía de la extensión.
+  - name: Guía de contribución
+    url: https://github.com/Xumeiquer/Asesoria/blob/main/CONTRIBUTING.md
+    about: Flujo de trabajo con issues, ramas, pull requests y releases.
