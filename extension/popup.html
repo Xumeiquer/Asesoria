@@ -90,7 +90,7 @@
 
           <div class="list-head">
             <div>
-              <h2>Expedientes abiertos</h2>
+              <h2 id="list-title">Próximos vencimientos</h2>
               <p id="list-subtitle" class="list-subtitle">Cargando…</p>
             </div>
             <button id="refresh" class="icon-btn" type="button" title="Actualizar" aria-label="Actualizar expedientes">
@@ -99,6 +99,27 @@
                 <path d="M21 3v6h-6" />
               </svg>
             </button>
+          </div>
+
+          <div class="view-switch" role="group" aria-label="Vista de expedientes">
+            <button id="view-upcoming" class="view-tab is-active" type="button" aria-pressed="true">
+              Próximos
+              <span id="upcoming-count" class="view-count">0</span>
+            </button>
+            <button id="view-all" class="view-tab" type="button" aria-pressed="false">
+              Todos
+              <span id="all-count" class="view-count">0</span>
+            </button>
+          </div>
+
+          <div class="taxpayer-wrap">
+            <svg class="taxpayer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <select id="taxpayer" class="input taxpayer-select" aria-label="Contribuyente"></select>
           </div>
 
           <div class="search-wrap">
@@ -111,7 +132,7 @@
 
           <p id="list-error" class="alert alert-error hidden" role="alert"></p>
 
-          <div id="filings" class="filings" role="list"></div>
+          <div id="filings" class="filings"></div>
 
           <div id="empty" class="empty hidden">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
