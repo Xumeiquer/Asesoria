@@ -18,8 +18,10 @@ import {
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import FilingItem from '@/components/FilingItem.vue'
+import ExerciseBoundary from '@/components/ExerciseBoundary.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { api } from '@/api'
+import { isoDate, nextExerciseStart, priorExerciseLabel } from '@/fiscal'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type { Dashboard, Filing } from '@/types'
@@ -51,21 +53,82 @@ async function load() {
 watch([() => store.selectedId, year], load)
 onMounted(load)
 
+type BoundaryRow = { kind: 'boundary'; key: string; date: string; label: string }
+type UpcomingRow = { kind: 'filing'; filing: Filing } | BoundaryRow
+
+const fiscalYearEnd = computed(() => store.selectedTaxpayer?.fiscal_year_end || '12-31')
+
+// Primer día del ejercicio siguiente al que cierra en `year` (p. ej. 1 de enero).
+function exerciseBoundary(year: number): string {
+  return isoDate(nextExerciseStart(year, fiscalYearEnd.value))
+}
+
+function priorExercise(filing: Filing): string {
+  return priorExerciseLabel(filing, fiscalYearEnd.value)
+}
+
+function boundaryLabel(iso: string): string {
+  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(`${iso}T00:00:00`),
+  )
+}
+
 const upcomingMonths = computed(() => {
+  const filings = (data.value?.upcoming ?? [])
+    .filter((filing) => filing.due_date)
+    .slice()
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+  if (!filings.length) return []
+
+  // Solo se marca el cambio si la lista cruza el cierre del ejercicio.
+  const firstDate = filings[0].due_date
+  const lastDate = filings[filings.length - 1].due_date
+  const boundaries: string[] = []
+  for (let y = Number(firstDate.slice(0, 4)) - 1; y <= Number(lastDate.slice(0, 4)); y++) {
+    const iso = exerciseBoundary(y)
+    if (iso > firstDate && iso <= lastDate && !boundaries.includes(iso)) boundaries.push(iso)
+  }
+
   const groups = new Map<string, Filing[]>()
-  for (const filing of data.value?.upcoming ?? []) {
-    if (!filing.due_date) continue
+  for (const filing of filings) {
     const key = filing.due_date.slice(0, 7)
     const list = groups.get(key) ?? []
     list.push(filing)
     groups.set(key, list)
   }
+
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, items]) => {
       const [y, m] = key.split('-').map(Number)
       const month = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(y, m - 1, 1))
-      return { key, label: `${month} ${y}`, items }
+
+      const rows: UpcomingRow[] = []
+      let cursor = 0
+      for (const boundary of boundaries.filter((iso) => iso.startsWith(key))) {
+        while (cursor < items.length && items[cursor].due_date < boundary) {
+          rows.push({ kind: 'filing', filing: items[cursor++] })
+        }
+        rows.push({
+          kind: 'boundary',
+          key: `boundary-${boundary}`,
+          date: boundary,
+          label: boundaryLabel(boundary),
+        })
+      }
+      while (cursor < items.length) {
+        rows.push({ kind: 'filing', filing: items[cursor++] })
+      }
+
+      // Si el cambio de ejercicio abre el mes, se pinta antes de su cabecera.
+      const before: BoundaryRow[] = rows[0]?.kind === 'boundary' ? [rows[0]] : []
+      return {
+        key,
+        label: `${month} ${y}`,
+        before,
+        items: rows.slice(before.length),
+        count: items.length,
+      }
     })
 })
 </script>
@@ -169,21 +232,25 @@ const upcomingMonths = computed(() => {
           </div>
           <div v-else-if="data?.upcoming.length" class="space-y-5">
             <section v-for="month in upcomingMonths" :key="month.key" class="space-y-2">
+              <ExerciseBoundary v-for="row in month.before" :key="row.key" :label="row.label" />
               <div class="flex items-center gap-2">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
                   {{ month.label }}
                 </h3>
                 <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                  {{ month.items.length }}
+                  {{ month.count }}
                 </span>
                 <span class="h-px flex-1 bg-slate-200" aria-hidden="true" />
               </div>
-              <FilingItem
-                v-for="filing in month.items"
-                :key="filing.id"
-                :filing="filing"
-                show-entity
-              />
+              <template v-for="row in month.items" :key="row.kind === 'filing' ? row.filing.id : row.key">
+                <FilingItem
+                  v-if="row.kind === 'filing'"
+                  :filing="row.filing"
+                  :exercise-label="priorExercise(row.filing)"
+                  show-entity
+                />
+                <ExerciseBoundary v-else :label="row.label" />
+              </template>
             </section>
           </div>
           <EmptyState

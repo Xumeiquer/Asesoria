@@ -6,9 +6,13 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import type { Filing } from '@/types'
 import { dateLabel, daysUntil } from '@/api'
 
-const props = withDefaults(defineProps<{ filing: Filing; showEntity?: boolean }>(), {
-  showEntity: false,
-})
+const props = withDefaults(
+  defineProps<{ filing: Filing; showEntity?: boolean; exerciseLabel?: string }>(),
+  {
+    showEntity: false,
+    exerciseLabel: '',
+  },
+)
 
 const days = computed(() => daysUntil(props.filing.due_date))
 const isDone = computed(() => props.filing.status === 'presented' || props.filing.status === 'not_applicable')
@@ -24,6 +28,13 @@ const dueText = computed(() => {
   if (days.value === 0) return 'Vence hoy'
   return `Vence en ${days.value} días`
 })
+const codeSize = computed(() => {
+  const length = props.filing.model_code.length
+  if (length <= 4) return 'text-sm'
+  if (length <= 7) return 'text-xs'
+  if (length <= 10) return 'text-[10px]'
+  return 'text-[9px]'
+})
 </script>
 
 <template>
@@ -32,10 +43,14 @@ const dueText = computed(() => {
     class="group flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 transition hover:border-slate-300 hover:shadow-sm sm:gap-4 sm:p-4"
   >
     <div
-      class="grid h-12 w-14 shrink-0 place-items-center rounded-xl text-white"
+      class="grid h-12 w-16 shrink-0 place-items-center overflow-hidden rounded-xl px-1 text-white"
       :class="filing.status === 'presented' ? 'bg-emerald-600' : 'bg-slate-900'"
     >
-      <span class="text-sm font-bold tracking-tight">{{ filing.model_code }}</span>
+      <span
+        class="text-center font-bold leading-tight tracking-tight break-words"
+        :class="codeSize"
+        :title="filing.model_code"
+      >{{ filing.model_code }}</span>
     </div>
 
     <div class="min-w-0 flex-1">
@@ -45,6 +60,11 @@ const dueText = computed(() => {
           v-if="showEntity"
           class="chip bg-slate-100 text-slate-500"
         >{{ filing.entity }}</span>
+        <span
+          v-if="exerciseLabel"
+          class="chip bg-indigo-50 text-indigo-700"
+          title="Periodo del ejercicio anterior, presentado después del cambio de ejercicio"
+        >{{ exerciseLabel }}</span>
       </div>
       <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
         <span class="font-medium text-slate-600">{{ filing.period_label }}</span>

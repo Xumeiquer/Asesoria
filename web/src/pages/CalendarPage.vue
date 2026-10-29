@@ -18,6 +18,7 @@ import FilingItem from '@/components/FilingItem.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, dateLabel } from '@/api'
+import { priorExerciseLabel } from '@/fiscal'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type { Filing, FilingStatus } from '@/types'
@@ -27,6 +28,12 @@ type Range = 'open' | 'overdue' | 'next30' | 'next45' | 'next90' | 'all'
 const store = useAppStore()
 const toasts = useToasts()
 const route = useRoute()
+
+const fiscalYearEnd = computed(() => store.selectedTaxpayer?.fiscal_year_end || '12-31')
+
+function priorExercise(filing: Filing): string {
+  return priorExerciseLabel(filing, fiscalYearEnd.value)
+}
 
 const year = ref(new Date().getFullYear())
 const status = ref<'' | FilingStatus>('')
@@ -553,7 +560,12 @@ onMounted(load)
               :aria-label="`Seleccionar ${filing.model_code} ${filing.period_label}`"
               @change="toggleSelection(filing.id)"
             />
-            <FilingItem :filing="filing" show-entity class="min-w-0 flex-1" />
+            <FilingItem
+              :filing="filing"
+              :exercise-label="priorExercise(filing)"
+              show-entity
+              class="min-w-0 flex-1"
+            />
           </div>
         </div>
       </section>
