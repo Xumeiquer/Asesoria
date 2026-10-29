@@ -335,7 +335,8 @@ onMounted(load)
               <span>
                 Abre <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">chrome://extensions</code>, activa el modo
                 desarrollador y elige «Cargar descomprimida». Selecciona la carpeta
-                <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">extension/dist</code> de este proyecto.
+                <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">extension/dist</code> de este proyecto
+                (o <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">extension/</code> si acabas de compilar).
               </span>
             </li>
             <li class="flex gap-3">

@@ -1,4 +1,5 @@
 import { DEFAULT_API, getConfig } from './lib/api'
+import { priorExerciseLabel } from './lib/fiscal'
 import {
   defaultExtensionName,
   escapeHtml,
@@ -89,6 +90,13 @@ function dueClass(filing: ExtensionFiling): string {
   return overdue ? 'due is-late' : 'due'
 }
 
+function codeClass(code: string): string {
+  if (code.length <= 4) return ''
+  if (code.length <= 7) return 'code-sm'
+  if (code.length <= 10) return 'code-xs'
+  return 'code-2xs'
+}
+
 function matches(filing: ExtensionFiling): boolean {
   if (!filter) return true
   const haystack = [
@@ -125,15 +133,23 @@ function renderFilings() {
     .map((item) => {
       const filing = item.filing
       const tone = statusTone(filing.status)
+      const exercise = priorExerciseLabel(filing, item.taxpayer_fiscal_year_end)
       const sede = item.model_url
         ? `<button class="row-action" type="button" data-sede data-url="${escapeHtml(item.model_url)}" title="Abrir en la sede electrónica" aria-label="Abrir en la sede electrónica">${sedeIcon}</button>`
         : '<span class="row-action" aria-hidden="true"></span>'
       return `
         <div class="filing" role="listitem" tabindex="0" data-id="${escapeHtml(filing.id)}" data-model="${escapeHtml(filing.model_code)}" aria-label="${escapeHtml(`${filing.model_code} ${filing.model_name}, ${filing.period_label}`)}">
-          <span class="model">${escapeHtml(filing.model_code)}</span>
+          <span class="model ${codeClass(filing.model_code)}" title="${escapeHtml(filing.model_code)}">${escapeHtml(filing.model_code)}</span>
           <span class="filing-body">
             <span class="filing-title">${escapeHtml(filing.model_name)}</span>
-            <span class="filing-sub">${escapeHtml(item.taxpayer_name)} · ${escapeHtml(filing.period_label)}</span>
+            <span class="filing-sub">
+              <span class="filing-sub-text">${escapeHtml(item.taxpayer_name)} · ${escapeHtml(filing.period_label)}</span>
+              ${
+                exercise
+                  ? `<span class="exercise" title="Periodo del ejercicio anterior, presentado después del cambio de ejercicio">${escapeHtml(exercise)}</span>`
+                  : ''
+              }
+            </span>
           </span>
           <span class="filing-side">
             <span class="${dueClass(item)}" title="Vence el ${escapeHtml(formatLongDate(filing.due_date))}">${escapeHtml(formatDate(filing.due_date))}</span>

@@ -1,5 +1,8 @@
 # Asesoría
 
+[![CI](https://github.com/Xumeiquer/Asesoria/actions/workflows/ci.yml/badge.svg)](https://github.com/Xumeiquer/Asesoria/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Xumeiquer/Asesoria?label=release)](https://github.com/Xumeiquer/Asesoria/releases)
+
 ERP fiscal local para autónomos y pequeñas sociedades limitadas. Organiza las obligaciones de la AEAT, la TGSS y el Registro Mercantil, genera el calendario de vencimientos, guarda documentos y ayuda a preparar los modelos oficiales. Una extensión de navegador muestra los datos del expediente sobre la sede electrónica y permite copiarlos o descargarlos, pero **nunca firma ni accede al certificado**.
 
 La aplicación está pensada para un único usuario en su propio equipo: el backend escucha solo en `127.0.0.1`, los datos viven en SQLite y no hay telemetría ni servicios externos.
@@ -191,7 +194,7 @@ npm run build       # genera extension/dist
 
 1. Abre `chrome://extensions`.
 2. Activa el **modo de desarrollador**.
-3. Pulsa **Cargar descomprimida** y selecciona `extension/dist`.
+3. Pulsa **Cargar descomprimida** y selecciona `extension/dist`. El build también deja los ficheros compilados en `extension/`, así que cargar esa carpeta tras `npm run build` funciona igual. Usa siempre la misma ruta: Chrome identifica la extensión por su carpeta y, si cambias de una a otra, tendrás que emparejarla de nuevo.
 4. En el ERP entra en **Ajustes → Conectar la extensión** y genera un código.
 5. Abre el popup de la extensión, pega el código y pulsa **Conectar**.
 
@@ -213,6 +216,22 @@ El código caduca en 10 minutos y solo puede usarse una vez. El token resultante
 3. Termina siempre con un paso `pause` para que el usuario revise y firme.
 
 La extensión no rellena, envía ni firma sin intervención del usuario, y nunca solicita ni lee el certificado.
+
+## Desarrollo, issues y releases
+
+El trabajo se organiza con **issues** y **pull requests** contra `main`. La guía completa está en [CONTRIBUTING.md](CONTRIBUTING.md).
+
+- Los títulos de las PRs siguen Conventional Commits (`feat:`, `fix:`, `docs:`, `security:`, etc.). El workflow de etiquetado aplica la etiqueta de release correspondiente.
+- Las releases se publican creando un tag `vX.Y.Z` sobre `main`:
+
+```bash
+git tag -a v0.2.0 -m "Asesoría v0.2.0"
+git push origin v0.2.0
+```
+
+El workflow de release compila la web y la incrusta en el binario, genera la extensión, compila binarios para Linux, macOS y Windows, publica los checksums y crea la release. Las notas se generan agrupadas por categorías (`.github/release.yml`): novedades, correcciones, seguridad, documentación, mantenimiento y otros cambios. Las PRs sin etiqueta aparecen en **Otros cambios**; añade `skip-changelog` para excluirlas.
+
+Tras descargar un binario de Linux o macOS, dale permisos de ejecución (`chmod +x asesoria_...`) antes de arrancarlo. La extensión se distribuye como un ZIP; descomprímelo y carga la carpeta resultante desde `chrome://extensions`.
 
 ## Catálogo y calendario
 
@@ -283,6 +302,10 @@ extension/
   src/content.ts       panel sobre la sede
   src/adapters/        motor declarativo (sin adaptadores verificados)
   src/background.ts    router de mensajes y descargas
+.github/
+  workflows/           CI, release y automatización de etiquetas
+  ISSUE_TEMPLATE/      plantillas de issues
+CONTRIBUTING.md        flujo de issues, PRs y releases
 Makefile
 ```
 

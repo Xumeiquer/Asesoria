@@ -1,4 +1,5 @@
 import { getAdapter, runAdapter } from './adapters'
+import { priorExerciseLabel } from './lib/fiscal'
 import type { ExtensionContext } from './lib/types'
 
 const HOST_ID = 'asesoria-assistant-host'
@@ -97,6 +98,8 @@ function panelMarkup(context: ExtensionContext): string {
   const canFill = Boolean(adapter?.verified && adapter.steps.length)
   const documents = context.documents.slice(0, 8)
   const status = context.filing.status
+  const exercise = priorExerciseLabel(context.filing, context.taxpayer.fiscal_year_end)
+  const missingReceipt = status === 'presented' && !context.filing.receipt_document_id
 
   return `
     <div class="panel" data-panel>
@@ -122,11 +125,21 @@ function panelMarkup(context: ExtensionContext): string {
           <span>Vence ${escapeHtml(formatDate(context.filing.due_date))}</span>
           <span>·</span>
           <span>${escapeHtml(context.filing.entity)}</span>
+          ${
+            exercise
+              ? `<span class="exercise" title="Periodo del ejercicio anterior, presentado después del cambio de ejercicio">${escapeHtml(exercise)}</span>`
+              : ''
+          }
         </div>
 
         ${
           status === 'presented'
             ? '<div class="banner ok">Este expediente ya está marcado como presentado.</div>'
+            : ''
+        }
+        ${
+          missingReceipt
+            ? '<div class="banner warn">Presentado sin justificante adjunto. Añádelo en el ERP.</div>'
             : ''
         }
         ${
@@ -252,6 +265,12 @@ function mount(context: ExtensionContext): void {
       .meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px; color: #94a3b8; }
       .banner { margin-top: 10px; padding: 8px 10px; border-radius: 10px; font-size: 12px; }
       .banner.ok { background: rgba(52,211,153,.12); color: #a7f3d0; border: 1px solid rgba(52,211,153,.25); }
+      .banner.warn { background: rgba(251,191,36,.1); color: #fcd34d; border: 1px solid rgba(251,191,36,.22); }
+      .exercise {
+        display: inline-flex; align-items: center; padding: 0 6px; border-radius: 999px;
+        background: rgba(129,140,248,.15); border: 1px solid rgba(129,140,248,.3);
+        color: #c7d2fe; font-size: 10px; font-weight: 700; line-height: 1.6;
+      }
       .warnings { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.22); color: #fcd34d; font-size: 11px; }
       .warnings p { margin: 2px 0; }
       .section-title { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #64748b; }

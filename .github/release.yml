@@ -1,0 +1,31 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - duplicate
+      - invalid
+      - wontfix
+    authors:
+      - "dependabot[bot]"
+  categories:
+    - title: "🚀 Novedades"
+      labels:
+        - enhancement
+    - title: "🐛 Correcciones"
+      labels:
+        - bug
+    - title: "🔒 Seguridad"
+      labels:
+        - security
+    - title: "📚 Documentación"
+      labels:
+        - documentation
+    - title: "🧰 Mantenimiento"
+      labels:
+        - dependencies
+        - ci
+        - refactor
+        - chore
+    - title: "Otros cambios"
+      labels:
+        - "*"

@@ -16,14 +16,20 @@ export interface Filing {
   period_end: string
   due_date: string
   status: string
+  notes?: string
   computed?: {
     model?: string
     version?: string
     lines?: ComputedLine[]
     values?: Record<string, string>
     warnings?: string[]
+    calculated_at?: string
   }
   data?: Record<string, unknown>
+  presented_at?: string | null
+  receipt_document_id?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Taxpayer {
@@ -31,6 +37,7 @@ export interface Taxpayer {
   name: string
   nif: string
   legal_form: string
+  fiscal_year_end?: string
 }
 
 export interface Model {
@@ -55,6 +62,7 @@ export interface ExtensionFiling {
   filing: Filing
   taxpayer_name: string
   taxpayer_nif: string
+  taxpayer_fiscal_year_end: string
   model_url: string
   calculator: boolean
 }

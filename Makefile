@@ -51,6 +51,6 @@ check:
 	cd extension && npm run check
 
 clean:
-	rm -rf bin web/dist extension/dist $(WEB_DIST)
+	rm -rf bin web/dist extension/dist extension/*.js $(WEB_DIST)
 	mkdir -p $(WEB_DIST)
 	touch $(WEB_DIST)/.keep
