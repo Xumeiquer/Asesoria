@@ -1,4 +1,5 @@
-import { getAdapter, runAdapter } from './adapters'
+import { adapterForPage, applyAdapter, filingExercise, previewAdapter } from './adapters'
+import type { AdapterPreview } from './adapters'
 import { priorExerciseLabel } from './lib/fiscal'
 import type { ExtensionContext } from './lib/types'
 
@@ -94,8 +95,25 @@ async function downloadDocument(id: string, filename: string): Promise<void> {
 function panelMarkup(context: ExtensionContext): string {
   const lines = context.filing.computed?.lines ?? []
   const warnings = context.filing.computed?.warnings ?? []
-  const adapter = getAdapter(context.filing.model_code)
-  const canFill = Boolean(adapter?.verified && adapter.steps.length)
+  const adapter = adapterForPage(
+    context.filing.model_code,
+    filingExercise(context.filing),
+    context.filing.entity,
+  )
+  const preview = adapter ? previewAdapter(adapter, context) : null
+  const dataMissing = preview?.dataMissing ?? []
+  const noDataText = dataMissing
+    .slice(0, 5)
+    .map((field) => (field.casilla ? `${field.casilla} (${field.label})` : field.label))
+    .join(', ')
+  const canFill = Boolean(
+    adapter?.verified &&
+      adapter.fields.length &&
+      !dataMissing.length &&
+      context.filing.status !== 'presented' &&
+      context.filing.status !== 'not_applicable',
+  )
+  const adapterPending = Boolean(adapter && !adapter.verified)
   const documents = context.documents.slice(0, 8)
   const status = context.filing.status
   const exercise = priorExerciseLabel(context.filing, context.taxpayer.fiscal_year_end)
@@ -150,6 +168,19 @@ function panelMarkup(context: ExtensionContext): string {
                 .join('')}</div>`
             : ''
         }
+        ${
+          adapterPending
+            ? '<div class="banner info">El relleno asistido de este modelo está en preparación. Puedes copiar las casillas y presentarlas manualmente.</div>'
+            : ''
+        }
+        ${
+          dataMissing.length
+            ? `<div class="banner warn">Faltan ${dataMissing.length} valor(es) en el ERP: ${escapeHtml(
+                noDataText,
+              )}${dataMissing.length > 5 ? ` y ${dataMissing.length - 5} más` : ''}. Revisa el cálculo antes de rellenar.</div>`
+            : ''
+        }
+        <div class="banner ok" data-fill-result hidden></div>
 
         <div class="section-title">
           <span>Casillas del modelo</span>
@@ -180,10 +211,19 @@ function panelMarkup(context: ExtensionContext): string {
         }
 
         <div class="actions">
-          <button class="btn primary" data-act="copy-all" ${lines.length ? '' : 'disabled'}>Copiar todas las casillas</button>
-          ${canFill ? '<button class="btn" data-act="fill">Rellenar formulario</button>' : ''}
+          <button class="btn" data-act="copy-all" ${lines.length ? '' : 'disabled'}>Copiar todas las casillas</button>
+          ${canFill ? '<button class="btn primary" data-act="fill">Revisar relleno</button>' : ''}
           <button class="btn" data-act="erp">Abrir ERP</button>
         </div>
+        ${
+          adapter
+            ? `<p class="note">Adaptador ${escapeHtml(adapter.code)}/${escapeHtml(
+                adapter.exercise ?? '',
+              )} · v${escapeHtml(adapter.version)} · actualizado ${escapeHtml(
+                adapter.updatedAt,
+              )} · ${adapter.verified ? 'verificado' : 'en preparación'}.</p>`
+            : ''
+        }
 
         <div class="section-title">
           <span>Documentación</span>
@@ -266,6 +306,8 @@ function mount(context: ExtensionContext): void {
       .banner { margin-top: 10px; padding: 8px 10px; border-radius: 10px; font-size: 12px; }
       .banner.ok { background: rgba(52,211,153,.12); color: #a7f3d0; border: 1px solid rgba(52,211,153,.25); }
       .banner.warn { background: rgba(251,191,36,.1); color: #fcd34d; border: 1px solid rgba(251,191,36,.22); }
+      .banner.info { background: rgba(56,189,248,.1); color: #bae6fd; border: 1px solid rgba(56,189,248,.22); }
+      .banner[hidden] { display: none; }
       .exercise {
         display: inline-flex; align-items: center; padding: 0 6px; border-radius: 999px;
         background: rgba(129,140,248,.15); border: 1px solid rgba(129,140,248,.3);
@@ -298,12 +340,67 @@ function mount(context: ExtensionContext): void {
       .empty.small { padding: 9px; }
       .note { margin: 12px 0 0; font-size: 10px; line-height: 1.5; color: #64748b; }
       .toast { margin-top: 8px; font-size: 11px; font-weight: 700; color: #34d399; min-height: 15px; text-align: right; }
+      .review {
+        position: fixed; inset: 0; z-index: 2147483648;
+        display: grid; place-items: center; padding: 16px;
+        background: rgba(2,6,23,.72);
+      }
+      .review[hidden] { display: none; }
+      .review-card {
+        width: min(460px, 100%); max-height: calc(100vh - 32px);
+        display: flex; flex-direction: column;
+        background: #0f172a; color: #e2e8f0;
+        border: 1px solid rgba(255,255,255,.12); border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(2,6,23,.6);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-size: 13px; line-height: 1.45; overflow: hidden;
+      }
+      .review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px; background: #020617; border-bottom: 1px solid rgba(255,255,255,.08); }
+      .review-head strong { display: block; color: #f8fafc; font-size: 14px; }
+      .review-sub { display: block; margin-top: 2px; color: #94a3b8; font-size: 10px; }
+      .review-body { padding: 12px 14px; overflow-y: auto; }
+      .review-summary { margin: 0 0 8px; color: #cbd5e1; font-size: 11px; }
+      .review-row { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); }
+      .review-row:first-child { border-top: 0; }
+      .review-casilla { color: #64748b; font-family: ui-monospace, monospace; font-size: 10px; padding-top: 2px; }
+      .review-label { color: #cbd5e1; font-size: 11px; }
+      .review-values { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 3px; font-family: ui-monospace, monospace; font-size: 11px; }
+      .review-old { color: #94a3b8; text-decoration: line-through; }
+      .review-new { color: #6ee7b7; font-weight: 700; }
+      .review-warn { color: #fcd34d; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+      .review-row.overwrite { background: rgba(251,191,36,.06); }
+      .review-actions { display: flex; justify-content: flex-end; gap: 6px; padding: 10px 14px; border-top: 1px solid rgba(255,255,255,.08); background: #0b1222; }
     </style>
     ${panelMarkup(context)}
+    <div class="review" data-review hidden>
+      <div class="review-card" role="dialog" aria-modal="true" aria-labelledby="asesoria-review-title">
+        <div class="review-head">
+          <div>
+            <strong id="asesoria-review-title">Revisar relleno</strong>
+            <span class="review-sub">Nada se envía hasta que tú firmes.</span>
+          </div>
+          <button class="icon-btn" data-act="review-close" title="Cerrar">×</button>
+        </div>
+        <div class="review-body">
+          <p class="review-summary" data-review-summary></p>
+          <div data-review-list></div>
+        </div>
+        <div class="review-actions">
+          <button class="btn" data-act="review-cancel">Cancelar</button>
+          <button class="btn primary" data-act="review-apply">Aplicar relleno</button>
+        </div>
+      </div>
+    </div>
   `
 
   const panel = shadow.querySelector<HTMLElement>('[data-panel]')!
   const toast = shadow.querySelector<HTMLElement>('[data-toast]')!
+
+  const review = shadow.querySelector<HTMLElement>('[data-review]')!
+  const reviewList = shadow.querySelector<HTMLElement>('[data-review-list]')!
+  const reviewSummary = shadow.querySelector<HTMLElement>('[data-review-summary]')!
+  const reviewApply = shadow.querySelector<HTMLButtonElement>('[data-act="review-apply"]')!
+  const fillResult = shadow.querySelector<HTMLElement>('[data-fill-result]')!
 
   let toastTimer = 0
   const flash = (message: string, isError = false) => {
@@ -311,6 +408,40 @@ function mount(context: ExtensionContext): void {
     toast.style.color = isError ? '#fda4af' : '#34d399'
     window.clearTimeout(toastTimer)
     toastTimer = window.setTimeout(() => (toast.textContent = ''), 3_000)
+  }
+
+  const closeReview = () => {
+    review.hidden = true
+    reviewList.innerHTML = ''
+  }
+
+  const renderReview = (preview: AdapterPreview) => {
+    const overwrites = preview.changes.filter((field) => field.overwrite).length
+    const locked = preview.locked.length
+    reviewSummary.textContent = [
+      `Se van a escribir ${preview.changes.length} campo(s).`,
+      overwrites ? `${overwrites} sobrescribe(n) un valor existente.` : '',
+      locked ? `${locked} campo(s) calculados por la sede se omiten.` : '',
+      'Revisa los importes y comprueba que el NIF y el periodo del formulario coinciden con el expediente antes de aplicar.',
+    ]
+      .filter(Boolean)
+      .join(' ')
+    reviewList.innerHTML = preview.changes
+      .map(
+        (field) => `<div class="review-row${field.overwrite ? ' overwrite' : ''}">
+          <span class="review-casilla">${escapeHtml(field.casilla ?? '—')}</span>
+          <div>
+            <div class="review-label">${escapeHtml(field.label)}</div>
+            <div class="review-values">
+              <span class="review-old">${escapeHtml(field.current || 'vacío')}</span>
+              <span>→</span>
+              <span class="review-new">${escapeHtml(field.next)}</span>
+              ${field.overwrite ? '<span class="review-warn">sobrescribe</span>' : ''}
+            </div>
+          </div>
+        </div>`,
+      )
+      .join('')
   }
 
   shadow.querySelector('[data-act="close"]')?.addEventListener('click', async () => {
@@ -337,14 +468,73 @@ function mount(context: ExtensionContext): void {
     send({ type: 'OPEN_ERP' }).catch((error: Error) => flash(error.message, true))
   })
 
-  shadow.querySelector('[data-act="fill"]')?.addEventListener('click', async () => {
-    const adapter = getAdapter(context.filing.model_code)
+  shadow.querySelector('[data-act="fill"]')?.addEventListener('click', () => {
+    const adapter = adapterForPage(
+      context.filing.model_code,
+      filingExercise(context.filing),
+      context.filing.entity,
+    )
     if (!adapter) return
     try {
-      await runAdapter(adapter, context, (text) => flash(text))
+      const preview = previewAdapter(adapter, context)
+      if (!preview.pageReady) {
+        flash(adapter.pageHint ?? 'Abre la página correcta del formulario y vuelve a intentarlo.', true)
+        return
+      }
+      if (preview.missing.length) {
+        flash(
+          `No encuentro ${preview.missing.length} campo(s). ${adapter.pageHint ?? 'Abre la página correcta y vuelve a intentarlo.'}`,
+          true,
+        )
+        return
+      }
+      if (preview.dataMissing.length) {
+        const labels = preview.dataMissing
+          .slice(0, 5)
+          .map((field) => (field.casilla ? `${field.casilla} (${field.label})` : field.label))
+          .join(', ')
+        flash(`Faltan ${preview.dataMissing.length} valor(es) en el ERP: ${labels}`, true)
+        return
+      }
+      if (!preview.changes.length) {
+        flash('No hay valores nuevos que aplicar')
+        return
+      }
+      fillResult.hidden = true
+      renderReview(preview)
+      review.hidden = false
+    } catch (error) {
+      flash(error instanceof Error ? error.message : 'No se pudo preparar el relleno', true)
+    }
+  })
+
+  reviewApply.addEventListener('click', async () => {
+    const adapter = adapterForPage(
+      context.filing.model_code,
+      filingExercise(context.filing),
+      context.filing.entity,
+    )
+    if (!adapter) return
+    reviewApply.disabled = true
+    try {
+      const result = await applyAdapter(adapter, context)
+      closeReview()
+      fillResult.hidden = false
+      fillResult.textContent = `Relleno aplicado en ${result.applied} campo(s)${
+        result.skipped ? ` (${result.skipped} omitido(s))` : ''
+      }. Revisa el formulario, fírmalo y preséntalo manualmente.`
+      flash('Relleno aplicado')
     } catch (error) {
       flash(error instanceof Error ? error.message : 'No se pudo rellenar', true)
+    } finally {
+      reviewApply.disabled = false
     }
+  })
+
+  shadow.querySelector('[data-act="review-cancel"]')?.addEventListener('click', closeReview)
+  shadow.querySelector('[data-act="review-close"]')?.addEventListener('click', closeReview)
+  review.addEventListener('click', (event) => {
+    if (event.target === review) closeReview()
   })
 
   shadow.querySelectorAll<HTMLElement>('[data-doc]').forEach((button) => {

@@ -1,0 +1,42 @@
+schemaVersion: 1
+entity: AEAT
+model: "130"
+exercise: "2026"
+version: "2026.1"
+updatedAt: "2026-10-30"
+verified: false
+page:
+  contains:
+    - "Rendimiento neto"
+    - "Resultado"
+pageHint: "Abre el formulario del modelo 130 y vuelve a intentarlo."
+notes: "Pendiente de verificar con HTML saneado del formulario autenticado. Los selectores actuales son una hipótesis basada en etiquetas de casilla."
+fields:
+  - casilla: "01"
+    label: "Ingresos íntegros acumulados"
+    selector: 'input[aria-label$="01"]'
+    kind: amount
+  - casilla: "02"
+    label: "Gastos deducibles acumulados"
+    selector: 'input[aria-label$="02"]'
+    kind: amount
+  - casilla: "03"
+    label: "Rendimiento neto acumulado"
+    selector: 'input[aria-label$="03"]'
+    kind: amount
+  - casilla: "04"
+    label: "20% del rendimiento neto acumulado"
+    selector: 'input[aria-label$="04"]'
+    kind: amount
+  - casilla: "05"
+    label: "Retenciones e ingresos a cuenta"
+    selector: 'input[aria-label$="05"]'
+    kind: amount
+  - casilla: "06"
+    label: "Pagos fraccionados anteriores"
+    selector: 'input[aria-label$="06"]'
+    kind: amount
+  - casilla: "07"
+    label: "Resultado a ingresar"
+    selector: 'input[aria-label$="07"]'
+    kind: amount

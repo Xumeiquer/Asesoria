@@ -6,3 +6,6 @@ contact_links:
   - name: Guía de contribución
     url: https://github.com/Xumeiquer/Asesoria/blob/main/CONTRIBUTING.md
     about: Flujo de trabajo con issues, ramas, pull requests y releases.
+  - name: Catálogo de formularios
+    url: https://github.com/Xumeiquer/Asesoria/blob/main/forms/README.md
+    about: Cómo añadir o actualizar un adaptador YAML/JSON y verificar sus selectores.

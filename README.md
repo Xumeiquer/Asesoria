@@ -18,10 +18,10 @@ MVP funcional. Incluye:
 - Gestión de contribuyentes (autónomo o SL), facturas emitidas/recibidas y documentos content-addressed por SHA-256.
 - Perfil RETA por autónomo: previsión anual de rendimientos netos, base de cotización mensual con fecha de vigencia e historial de cambios. La base se valida contra la tabla general y reducida de 2026; no cubre particularidades como pluriactividad o actividades artísticas.
 - Biblioteca documental gestionada en una carpeta del equipo, con árbol por contribuyente/año/trimestre/tipo, escaneo incremental, extracción de texto y OCR local opcional.
-- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, próximos vencimientos, panel sobre la sede electrónica con casillas, copia al portapapeles y descarga de documentos.
+- Extensión MV3 para Chrome/Chromium: emparejamiento por código de un solo uso, próximos vencimientos, listado de expedientes, panel sobre la sede electrónica con casillas, copia al portapapeles, descarga de documentos y relleno asistido con revisión previa (303/2026; 130/2026 en preparación).
 - Datos de demostración con `-demo`.
 
-Todavía **no** presenta modelos, no custodia certificados y no emite facturas. El resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente; sus casillas no se calculan.
+Todavía **no** firma ni presenta modelos, no custodia certificados y no emite facturas. El 303/2026 se puede rellenar con revisión previa; el resto de modelos del catálogo se pueden seguir, documentar y preparar manualmente, y sus casillas no se calculan.
 
 ## Arquitectura
 
@@ -44,12 +44,13 @@ Todavía **no** presenta modelos, no custodia certificados y no emite facturas. 
 - **Web** (`web/`): Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS 4, `lucide-vue-next`.
 - **Extensión** (`extension/`): Manifest V3, TypeScript y esbuild. El popup y la página de opciones usan un diseño propio; el panel se inyecta en un shadow DOM para no interferir con la sede.
 - **Catálogo** (`backend/internal/catalog/data/models.yaml`): datos versionados por ejercicio, separados de la lógica de cálculo.
+- **Formularios** (`forms/`): adaptadores declarativos en YAML o JSON, versionados por organismo, modelo, ejercicio y revisión. Se validan y se convierten en el registro de la extensión y en el catálogo de requisitos del ERP durante el build.
 - **Importes**: siempre en céntimos. Los tipos se guardan en puntos básicos (`2100` = 21 %).
 
 ## Requisitos
 
 - Go **1.26 o superior**.
-- Node.js **20 o superior** (probado con Node 24) y npm solo para compilar la web y la extensión.
+- Node.js **20 o superior** (probado con Node 24) y npm para compilar la web, la extensión y validar el catálogo de formularios.
 - Opcional para OCR local: **Tesseract** y **Poppler** instalados en el sistema. No forman parte del binario; ver [OCR: dependencias del sistema](#ocr-dependencias-del-sistema-opcional).
 - Chrome, Edge o Brave basado en Chromium para la extensión. Firefox no está validado.
 
@@ -187,10 +188,16 @@ No expongas el servidor en una interfaz pública. El modelo de seguridad asume l
 ## Extensión
 
 ```bash
+# Dependencias del generador de formularios (raíz)
+npm ci
 cd extension
 npm ci
-npm run build       # genera extension/dist
+npm run check       # typecheck; genera antes el catálogo desde forms/
+npm test            # pruebas del motor de adaptadores
+npm run build       # genera el catálogo y extension/dist
 ```
+
+`make build` instala estas dependencias y genera el catálogo automáticamente. Si cambias un fichero de `forms/`, `npm run generate` vuelve a crear los registros de la extensión y de la web.
 
 1. Abre `chrome://extensions`.
 2. Activa el **modo de desarrollador**.
@@ -211,18 +218,46 @@ El código caduca en 10 minutos y solo puede usarse una vez. El token resultante
 
 - Detecta el expediente abierto desde el popup y muestra modelo, periodo, vencimiento, estado, casillas calculadas, avisos y documentos.
 - Permite copiar una casilla, copiar todas o descargar documentos.
+- Si hay un adaptador verificado para el modelo y ejercicio, muestra **Revisar relleno**: enseña qué campos cambian, el valor actual y el nuevo, y solo escribe cuando se pulsa **Aplicar relleno**.
 - Abre el ERP o la sede oficial.
 - Se cierra con la X y limpia el expediente activo.
 
 ### Adaptadores de formulario
 
-`extension/src/adapters/index.ts` define un motor declarativo (`wait`, `set`, `select`, `click`, `pause`) y **no incluye ningún adaptador verificado**. El panel funciona siempre como asistente manual. Para habilitar relleno automático:
+La definición de los formularios vive en `forms/` y es **declarativa, versionada y aportable por la comunidad**. Se admiten YAML, YML y JSON; YAML es el formato recomendado. En tiempo de compilación se validan contra un esquema y se generan dos artefactos ignorados por Git: el registro TypeScript de la extensión y el catálogo de requisitos que muestra el ERP.
 
-1. Verifica los selectores contra el formulario oficial del ejercicio concreto.
-2. Añade el adaptador con `verified: true` solo después de probarlo.
-3. Termina siempre con un paso `pause` para que el usuario revise y firme.
+La estructura es:
 
-La extensión no rellena, envía ni firma sin intervención del usuario, y nunca solicita ni lee el certificado.
+```text
+forms/
+  schema/adapter.schema.json
+  aeat/303/2026/2026.1.yaml
+  aeat/130/2026/2026.1.yaml
+```
+
+Un cambio de la Administración se representa con una **nueva revisión** (`2026.2`, `2026.3`…) y conserva la anterior mientras el formulario antiguo siga accesible. La primera versión de una revisión nueva debe empezar con `verified: false` y pasar a `true` solo después de probar los selectores contra el formulario oficial o su simulador. La extensión elige la revisión más reciente cuya página coincide con el documento abierto.
+
+El motor resuelve valores del expediente, aplica formatos (importes con coma decimal, fechas, NIF), comprueba que la página es la correcta y separa la previsualización de la escritura. Si falta un valor marcado como requerido, la extensión no abre la revisión de relleno. **Nunca pulsa «Firmar», «Presentar» ni ningún botón de envío.**
+
+Estado actual:
+
+| Modelo | Ejercicio | Estado | Validación |
+| --- | --- | --- | --- |
+| 303 | 2026 | Verificado | Simulador público oficial `A303-FWME/E2026/OPEN` |
+| 130 | 2026 | En preparación | Pendiente de HTML saneado del formulario autenticado |
+
+El 303 rellena las casillas editables del régimen general (bases y cuotas devengadas/deducibles, incluidos los tipos 0, 4, 10 y 21 %). No se escriben las casillas que calcula la AEAT. El 130 mantiene el adaptador preparado, pero no se activa hasta validar sus selectores.
+
+Para añadir un modelo o una revisión no hay que tocar TypeScript:
+
+1. Consulta [`forms/README.md`](forms/README.md) y el esquema.
+2. Abre el formulario oficial (o su simulador) y localiza selectores estables por `aria-label`, etiqueta o estructura; no uses IDs dinámicos de ZK.
+3. Crea el fichero en `forms/<organismo>/<modelo>/<ejercicio>/<version>.yaml` con `verified: false`.
+4. Ejecuta `npm run forms:check` y después `make check` para validar el catálogo y compilar.
+5. Verifica la previsualización y la escritura contra el formulario real del ejercicio.
+6. Cambia `verified` a `true` solo cuando la prueba haya pasado y documenta `verifiedAgainst`.
+
+El ERP usa el mismo catálogo para mostrar, antes de presentar, qué casillas y datos necesita el formulario y cuáles faltan en el cálculo. La extensión no accede al certificado, Cl@ve, DNIe ni a la clave de firma. Tampoco rellena expedientes presentados o no aplicables, ni automatiza la presentación.
 
 ## Desarrollo, issues y releases
 
@@ -260,10 +295,10 @@ Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 a
 
 Solo 303 y 130 tienen calculadora:
 
-- **303**: casillas 01–28 (bases, tipos, cuotas devengadas/deducibles y resultado del régimen general).
+- **303**: casillas 150, 152, 01–15 y 27–46 (bases, tipos, cuotas devengadas/deducibles, totales y resultado del régimen general). Las correspondencias se han validado contra las instrucciones oficiales de 2026.
 - **130**: casillas 01–07 (ingresos, gastos, rendimiento neto, 20 %, retenciones y pagos previos).
 
-Los cálculos usan las facturas del periodo y contribuyente. **Las correspondencias de casillas están pendientes de validar contra el formulario oficial de 2026**; la interfaz muestra este aviso. Los regímenes especiales de IVA no están cubiertos.
+Los cálculos usan las facturas del periodo y contribuyente. El 303 cubre los tipos de IVA del 0, 4, 10 y 21 %; los regímenes especiales, el recargo de equivalencia y otros tipos (incluido el 5 % transitorio) quedan fuera y se muestran como avisos para revisión manual. El 130 sigue pendiente de validar contra el formulario oficial.
 
 ## Seguridad y privacidad
 
@@ -307,7 +342,7 @@ extension/
   src/popup.ts         emparejamiento y listado
   src/options.ts       ajustes y estado de conexión
   src/content.ts       panel sobre la sede
-  src/adapters/        motor declarativo (sin adaptadores verificados)
+  src/adapters/        motor declarativo y adaptadores 303/130
   src/background.ts    router de mensajes y descargas
 .github/
   workflows/           CI, release y automatización de etiquetas

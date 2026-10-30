@@ -5,6 +5,8 @@
 /extension/dist/
 /extension/*.js
 /extension/*.js.map
+/extension/src/adapters/generated.ts
+/web/src/generated/
 /backend/internal/webapp/dist/*
 !/backend/internal/webapp/dist/.keep
 
