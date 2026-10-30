@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Xumeiquer/Asesoria/forms/schema/adapter.schema.json",
+  "title": "Asesoría form adapter",
+  "description": "Define cómo rellenar las casillas de un formulario oficial en una revisión concreta.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "entity",
+    "model",
+    "exercise",
+    "version",
+    "updatedAt",
+    "verified",
+    "page",
+    "fields"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "Versión del formato. Se incrementará solo si cambia el esquema."
+    },
+    "entity": {
+      "type": "string",
+      "enum": ["AEAT", "TGSS", "Registro Mercantil"]
+    },
+    "model": {
+      "type": "string",
+      "pattern": "^[0-9A-Z][0-9A-Z.-]{0,15}$",
+      "description": "Código del modelo o trámite, por ejemplo 303 o 130."
+    },
+    "exercise": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))?$",
+      "description": "Revisión del formulario dentro del ejercicio, por ejemplo 2026.1 o 2026.2.1."
+    },
+    "updatedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "verified": {
+      "type": "boolean",
+      "description": "true solo después de probar los selectores contra el formulario real o su simulador."
+    },
+    "verifiedAgainst": {
+      "type": "string",
+      "minLength": 1,
+      "description": "URL del formulario o simulador usado para verificar la revisión."
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contains"],
+      "properties": {
+        "contains": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Textos que deben aparecer en la página para considerarla correcta."
+        }
+      }
+    },
+    "pageHint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/field" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "verified": { "const": true } },
+        "required": ["verified"]
+      },
+      "then": { "required": ["verifiedAgainst"] }
+    }
+  ],
+  "definitions": {
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "selector"],
+      "anyOf": [{ "required": ["casilla"] }, { "required": ["source"] }],
+      "properties": {
+        "casilla": {
+          "type": "string",
+          "pattern": "^[0-9A-Z][0-9A-Z.-]{0,15}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selector": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Selector CSS estable. No uses IDs dinámicos de ZK/AEAT."
+        },
+        "kind": {
+          "enum": ["text", "amount", "percent", "date", "nif", "select", "checkbox"]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expresión con placeholders, por ejemplo {{casilla.01}} o {{taxpayer.nif}}."
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "El campo puede no existir en la página según el perfil fiscal."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "El ERP debe tener un valor antes de rellenar. Por defecto true."
+        }
+      }
+    }
+  }
+}

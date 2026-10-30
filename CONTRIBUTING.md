@@ -10,12 +10,29 @@ Gracias por el interés. El proyecto se organiza con **issues** y **pull request
 
 ## Issues
 
-Hay dos plantillas:
+Hay tres plantillas:
 
 - **Informe de error** (`bug`): fallos reproducibles, con pasos, resultado esperado y entorno.
 - **Propuesta de mejora** (`enhancement`): funcionalidad nueva o cambio de comportamiento.
+- **Formulario oficial** (`enhancement`): alta o actualización de un adaptador en `forms/`.
 
 Las issues se etiquetan por tipo; la plantilla recoge además el área afectada. La etiqueta de tipo es la que determina la categoría del changelog de la release.
+
+## Formularios oficiales
+
+Los adaptadores de relleno viven en `forms/` y se declaran en YAML o JSON. No hace falta tocar TypeScript para añadir un modelo, un ejercicio o una revisión nueva. La guía completa está en [`forms/README.md`](forms/README.md).
+
+Reglas rápidas:
+
+- Sigue la ruta `forms/<organismo>/<modelo>/<ejercicio>/<version>.yaml`. El build valida que coincida con los metadatos.
+- Un cambio del formulario se representa con una revisión nueva (`2026.2.yaml`), no sobrescribiendo una versión ya verificada.
+- Empieza con `verified: false` y cambia a `true` solo después de probar los selectores contra el formulario oficial o su simulador.
+- Usa selectores estables por `aria-label`, etiqueta o estructura; nunca IDs dinámicos de ZK.
+- No incluyas datos personales, NIF reales, importes reales, certificados ni secretos. Usa el simulador o HTML saneado.
+- La extensión solo rellena y revisa: no firma, no presenta y no accede al certificado, Cl@ve ni DNIe.
+- Ejecuta `npm run forms:check` y `make check` antes de abrir la PR.
+
+El catálogo también alimenta la ficha del ERP, que muestra qué casillas y datos necesita el modelo antes de presentarlo.
 
 ## Ramas y commits
 
@@ -43,7 +60,7 @@ Prefijos admitidos: `feat`, `fix`, `docs`, `chore`, `refactor`, `ci`, `deps` y `
 1. Abre la PR contra `main`.
 2. Usa un título con el mismo formato que los commits: `tipo(scope): descripción`.
 3. Rellena la plantilla, enlaza la issue con `Closes #123` y explica cómo probar el cambio.
-4. Espera a que pase **CI** (Go, web y extensión).
+4. Espera a que pase **CI** (Go, web, extensión y formularios).
 5. Mantén la PR pequeña y con un objetivo claro. Si mezcla cambios independientes, sepáralos.
 
 El workflow de etiquetado aplica automáticamente la etiqueta de release a partir del prefijo del título. También puedes corregirla a mano si hace falta.
@@ -77,15 +94,23 @@ Antes de pedir revisión:
 make check
 ```
 
-Esto comprueba formato y vet de Go, el typecheck de la web y el typecheck de la extensión. Para probar el build completo:
+Esto valida el catálogo de formularios, comprueba formato y vet de Go, el typecheck de la web y el de la extensión, y ejecuta las pruebas de la extensión. Para probar el build completo:
 
 ```bash
 make build
 ```
 
-Para trabajar solo con la extensión:
+Si solo has tocado formularios, la comprobación rápida es:
 
 ```bash
+npm ci
+npm run forms:check
+```
+
+Para trabajar solo con la extensión, instala primero las dependencias del generador en la raíz:
+
+```bash
+npm ci
 cd extension
 npm ci
 npm run build

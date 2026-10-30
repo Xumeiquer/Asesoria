@@ -32,6 +32,7 @@ Closes #
 - [ ] He ejecutado las comprobaciones locales (`make check` o las que apliquen).
 - [ ] He añadido o actualizado pruebas si el cambio lo necesita.
 - [ ] He actualizado la documentación afectada.
+- [ ] Si toco `forms/`, `npm run forms:check` pasa y la revisión queda marcada como verificada solo con evidencia.
 - [ ] No incluyo datos personales, certificados, secretos ni bases de datos reales.
 - [ ] La etiqueta de release (`enhancement`, `bug`, `security`, etc.) está aplicada o el título permite deducirla.
 

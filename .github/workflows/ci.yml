@@ -15,6 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  forms:
+    name: Formularios (YAML/JSON)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Instalar dependencias del catálogo
+        run: npm ci --no-audit --no-fund
+
+      - name: Validar formularios
+        run: npm run forms:check
+
   backend:
     name: Backend (Go)
     runs-on: ubuntu-latest
@@ -58,7 +78,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Instalar dependencias del catálogo
+        run: npm ci --no-audit --no-fund
 
       - name: Instalar dependencias
         working-directory: web
@@ -80,7 +105,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: extension/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            extension/package-lock.json
+
+      - name: Instalar dependencias del catálogo
+        run: npm ci --no-audit --no-fund
 
       - name: Instalar dependencias
         working-directory: extension

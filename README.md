@@ -44,12 +44,13 @@ Todavía **no** firma ni presenta modelos, no custodia certificados y no emite f
 - **Web** (`web/`): Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS 4, `lucide-vue-next`.
 - **Extensión** (`extension/`): Manifest V3, TypeScript y esbuild. El popup y la página de opciones usan un diseño propio; el panel se inyecta en un shadow DOM para no interferir con la sede.
 - **Catálogo** (`backend/internal/catalog/data/models.yaml`): datos versionados por ejercicio, separados de la lógica de cálculo.
+- **Formularios** (`forms/`): adaptadores declarativos en YAML o JSON, versionados por organismo, modelo, ejercicio y revisión. Se validan y se convierten en el registro de la extensión y en el catálogo de requisitos del ERP durante el build.
 - **Importes**: siempre en céntimos. Los tipos se guardan en puntos básicos (`2100` = 21 %).
 
 ## Requisitos
 
 - Go **1.26 o superior**.
-- Node.js **20 o superior** (probado con Node 24) y npm solo para compilar la web y la extensión.
+- Node.js **20 o superior** (probado con Node 24) y npm para compilar la web, la extensión y validar el catálogo de formularios.
 - Opcional para OCR local: **Tesseract** y **Poppler** instalados en el sistema. No forman parte del binario; ver [OCR: dependencias del sistema](#ocr-dependencias-del-sistema-opcional).
 - Chrome, Edge o Brave basado en Chromium para la extensión. Firefox no está validado.
 
@@ -187,12 +188,16 @@ No expongas el servidor en una interfaz pública. El modelo de seguridad asume l
 ## Extensión
 
 ```bash
+# Dependencias del generador de formularios (raíz)
+npm ci
 cd extension
 npm ci
-npm run check       # typecheck
+npm run check       # typecheck; genera antes el catálogo desde forms/
 npm test            # pruebas del motor de adaptadores
-npm run build       # genera extension/dist
+npm run build       # genera el catálogo y extension/dist
 ```
+
+`make build` instala estas dependencias y genera el catálogo automáticamente. Si cambias un fichero de `forms/`, `npm run generate` vuelve a crear los registros de la extensión y de la web.
 
 1. Abre `chrome://extensions`.
 2. Activa el **modo de desarrollador**.
@@ -219,7 +224,20 @@ El código caduca en 10 minutos y solo puede usarse una vez. El token resultante
 
 ### Adaptadores de formulario
 
-`extension/src/adapters/` contiene adaptadores declarativos, versionados por modelo y ejercicio. El motor resuelve valores del expediente, aplica formatos (importes con coma decimal, fechas, NIF), comprueba que la página es la correcta y separa la previsualización de la escritura. **Nunca pulsa «Firmar», «Presentar» ni ningún botón de envío.**
+La definición de los formularios vive en `forms/` y es **declarativa, versionada y aportable por la comunidad**. Se admiten YAML, YML y JSON; YAML es el formato recomendado. En tiempo de compilación se validan contra un esquema y se generan dos artefactos ignorados por Git: el registro TypeScript de la extensión y el catálogo de requisitos que muestra el ERP.
+
+La estructura es:
+
+```text
+forms/
+  schema/adapter.schema.json
+  aeat/303/2026/2026.1.yaml
+  aeat/130/2026/2026.1.yaml
+```
+
+Un cambio de la Administración se representa con una **nueva revisión** (`2026.2`, `2026.3`…) y conserva la anterior mientras el formulario antiguo siga accesible. La primera versión de una revisión nueva debe empezar con `verified: false` y pasar a `true` solo después de probar los selectores contra el formulario oficial o su simulador. La extensión elige la revisión más reciente cuya página coincide con el documento abierto.
+
+El motor resuelve valores del expediente, aplica formatos (importes con coma decimal, fechas, NIF), comprueba que la página es la correcta y separa la previsualización de la escritura. Si falta un valor marcado como requerido, la extensión no abre la revisión de relleno. **Nunca pulsa «Firmar», «Presentar» ni ningún botón de envío.**
 
 Estado actual:
 
@@ -230,15 +248,16 @@ Estado actual:
 
 El 303 rellena las casillas editables del régimen general (bases y cuotas devengadas/deducibles, incluidos los tipos 0, 4, 10 y 21 %). No se escriben las casillas que calcula la AEAT. El 130 mantiene el adaptador preparado, pero no se activa hasta validar sus selectores.
 
-Para añadir un modelo o ejercicio:
+Para añadir un modelo o una revisión no hay que tocar TypeScript:
 
-1. Abre el formulario oficial (o su simulador) y localiza selectores estables por `aria-label`, etiqueta o estructura; no uses IDs dinámicos de ZK.
-2. Crea un adaptador en `extension/src/adapters/` con `page.contains`, `fields` y `verified: false`.
-3. Añade el caso al registro de `extension/src/adapters/index.ts`.
-4. Verifica la previsualización y la escritura contra el formulario real del ejercicio.
-5. Cambia `verified` a `true` solo cuando la prueba haya pasado y documenta contra qué se validó.
+1. Consulta [`forms/README.md`](forms/README.md) y el esquema.
+2. Abre el formulario oficial (o su simulador) y localiza selectores estables por `aria-label`, etiqueta o estructura; no uses IDs dinámicos de ZK.
+3. Crea el fichero en `forms/<organismo>/<modelo>/<ejercicio>/<version>.yaml` con `verified: false`.
+4. Ejecuta `npm run forms:check` y después `make check` para validar el catálogo y compilar.
+5. Verifica la previsualización y la escritura contra el formulario real del ejercicio.
+6. Cambia `verified` a `true` solo cuando la prueba haya pasado y documenta `verifiedAgainst`.
 
-La extensión no accede al certificado, Cl@ve, DNIe ni a la clave de firma. Tampoco rellena expedientes presentados o no aplicables, ni automatiza la presentación.
+El ERP usa el mismo catálogo para mostrar, antes de presentar, qué casillas y datos necesita el formulario y cuáles faltan en el cálculo. La extensión no accede al certificado, Cl@ve, DNIe ni a la clave de firma. Tampoco rellena expedientes presentados o no aplicables, ni automatiza la presentación.
 
 ## Desarrollo, issues y releases
 

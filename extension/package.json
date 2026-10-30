@@ -4,10 +4,11 @@
   "version": "0.1.1",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && node build.mjs",
-    "watch": "node build.mjs --watch",
-    "check": "tsc --noEmit",
-    "test": "node --test test/*.test.mjs"
+    "generate": "node ../scripts/build-forms.mjs --target extension",
+    "build": "npm run generate && tsc --noEmit && node build.mjs",
+    "watch": "npm run generate && node build.mjs --watch",
+    "check": "npm run generate && tsc --noEmit",
+    "test": "npm run generate && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",

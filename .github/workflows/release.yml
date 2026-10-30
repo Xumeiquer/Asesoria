@@ -54,8 +54,15 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: |
+            package-lock.json
             web/package-lock.json
             extension/package-lock.json
+
+      - name: Instalar dependencias del catálogo
+        run: npm ci --no-audit --no-fund
+
+      - name: Validar formularios
+        run: npm run forms:check
 
       - name: Tests del backend
         working-directory: backend

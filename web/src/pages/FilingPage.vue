@@ -18,6 +18,13 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, bytes, dateLabel, dateTimeLabel, daysUntil } from '@/api'
+import {
+  formAdapterFor,
+  missingFormRequirements,
+  requirementDisplay,
+  requirementLabel,
+  type FormRequirement,
+} from '@/forms'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type { DocumentItem, Filing, FilingStatus, Model, Taxpayer } from '@/types'
@@ -55,6 +62,19 @@ const lines = computed(() => filing.value?.computed?.lines ?? [])
 const warnings = computed(() => filing.value?.computed?.warnings ?? [])
 const dueDays = computed(() => (filing.value ? daysUntil(filing.value.due_date) : 0))
 const isOpen = computed(() => filing.value && !['presented', 'not_applicable'].includes(filing.value.status))
+const formAdapter = computed(() => (filing.value ? formAdapterFor(filing.value) : undefined))
+const formRequirements = computed(() => formAdapter.value?.requirements ?? [])
+const missingFormData = computed(() =>
+  filing.value ? missingFormRequirements(formAdapter.value, filing.value, taxpayer.value) : [],
+)
+const missingFormKeys = computed(() => new Set(missingFormData.value.map((requirement) => requirement.key)))
+const formDataReady = computed(
+  () => Boolean(formAdapter.value && missingFormData.value.length === 0),
+)
+
+function isRequirementMissing(requirement: FormRequirement): boolean {
+  return missingFormKeys.value.has(requirement.key)
+}
 
 async function load() {
   loading.value = true
@@ -422,6 +442,62 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
+        <div v-if="formAdapter" class="card card-pad">
+          <div class="flex items-start justify-between gap-3">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Datos para rellenar</h2>
+            <span
+              class="chip"
+              :class="formAdapter.verified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+            >
+              {{ formAdapter.verified ? 'Verificado' : 'En preparación' }}
+            </span>
+          </div>
+
+          <div
+            class="mt-3 flex items-start gap-2 text-sm"
+            :class="formDataReady ? 'text-emerald-700' : 'text-amber-700'"
+          >
+            <CheckCircle2 v-if="formDataReady" class="mt-0.5 h-4 w-4 shrink-0" />
+            <AlertTriangle v-else class="mt-0.5 h-4 w-4 shrink-0" />
+            <span v-if="formDataReady">
+              Datos completos para rellenar ({{ formRequirements.length }}/{{ formRequirements.length }})
+            </span>
+            <span v-else>
+              Faltan {{ missingFormData.length }} de {{ formRequirements.length }} datos en el ERP
+            </span>
+          </div>
+
+          <ul v-if="!formDataReady" class="mt-3 space-y-1.5">
+            <li
+              v-for="requirement in missingFormData.slice(0, 5)"
+              :key="requirement.key"
+              class="flex items-start gap-2 text-xs text-slate-600"
+            >
+              <span class="w-8 shrink-0 font-mono text-slate-400">{{ requirement.casilla ?? '—' }}</span>
+              <span>{{ requirementLabel(requirement, filing) }}</span>
+            </li>
+            <li v-if="missingFormData.length > 5" class="text-xs text-slate-400">
+              y {{ missingFormData.length - 5 }} más…
+            </li>
+          </ul>
+
+          <button
+            v-if="!formDataReady && model?.calculator"
+            class="btn-primary mt-3 w-full"
+            :disabled="busy === 'calculate'"
+            @click="calculate"
+          >
+            <Calculator class="h-4 w-4" /> Calcular ahora
+          </button>
+
+          <p class="mt-3 text-xs text-slate-400">
+            Adaptador {{ formAdapter.version }} · actualizado {{ dateLabel(formAdapter.updatedAt) }}
+          </p>
+          <p v-if="!formAdapter.verified" class="mt-2 text-xs leading-relaxed text-amber-700">
+            En preparación: los selectores aún no están verificados. Puedes seguir copiando las casillas manualmente.
+          </p>
+        </div>
+
         <div v-if="model?.documents.length" class="card card-pad">
           <div class="flex items-center justify-between">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Checklist</h2>
@@ -524,6 +600,63 @@ onBeforeUnmount(() => {
     <!-- Presentación -->
     <div v-else class="grid gap-5 lg:grid-cols-3">
       <section class="space-y-4 lg:col-span-2">
+        <div v-if="formAdapter" class="card card-pad">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Datos que debe tener el ERP</h2>
+              <p class="mt-1 text-xs text-slate-400">
+                Adaptador {{ formAdapter.version }} · actualizado {{ dateLabel(formAdapter.updatedAt) }}
+              </p>
+            </div>
+            <span
+              class="chip"
+              :class="formAdapter.verified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+            >
+              {{ formAdapter.verified ? 'Verificado' : 'En preparación' }}
+            </span>
+          </div>
+
+          <p class="mt-3 text-sm text-slate-500">
+            La extensión usará estos datos del expediente para rellenar el formulario. Revisa los que faltan antes de
+            presentar.
+          </p>
+
+          <div class="mt-4 grid gap-2 sm:grid-cols-2">
+            <div
+              v-for="requirement in formRequirements"
+              :key="requirement.key"
+              class="flex items-start justify-between gap-2 rounded-xl border border-slate-100 p-2.5 text-sm"
+            >
+              <div class="flex min-w-0 items-start gap-2">
+                <CheckCircle2
+                  v-if="!isRequirementMissing(requirement)"
+                  class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500"
+                />
+                <AlertTriangle v-else class="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <div class="min-w-0">
+                  <p class="font-medium text-slate-700">{{ requirementLabel(requirement, filing) }}</p>
+                  <p class="text-xs text-slate-400">
+                    {{ requirement.casilla ? `Casilla ${requirement.casilla}` : requirement.key }}
+                  </p>
+                </div>
+              </div>
+              <span
+                class="shrink-0 font-mono text-xs"
+                :class="isRequirementMissing(requirement) ? 'text-rose-600' : 'text-slate-600'"
+              >
+                {{ isRequirementMissing(requirement) ? 'Falta' : requirementDisplay(requirement, filing, taxpayer) }}
+              </span>
+            </div>
+          </div>
+
+          <p
+            v-if="!formDataReady"
+            class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+          >
+            Completa el cálculo o revisa las casillas que faltan antes de rellenar el formulario.
+          </p>
+        </div>
+
         <div class="card card-pad">
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Presentar en la sede electrónica</h2>
           <div class="mt-4 space-y-4">

@@ -1,0 +1,185 @@
+schemaVersion: 1
+entity: AEAT
+model: "303"
+exercise: "2026"
+version: "2026.1"
+updatedAt: "2026-10-30"
+verified: true
+verifiedAgainst: "https://www2.agenciatributaria.gob.es/wlpl/A303-FWME/E2026/OPEN/index.zul"
+page:
+  contains:
+    - "IVA devengado"
+    - "Total cuota devengada"
+pageHint: "Abre la página «Liquidación: régimen general» (página 2 del formulario) y vuelve a intentarlo."
+notes: "Selectores probados contra el simulador oficial 303/2026. Revisa siempre los importes antes de firmar."
+fields:
+  - casilla: "150"
+    label: "Base imponible al 0%"
+    selector: 'input[aria-label$="150"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "01"
+    label: "Base imponible al 4%"
+    selector: 'input[aria-label$="01"]'
+    kind: amount
+  - casilla: "03"
+    label: "Cuota devengada al 4%"
+    selector: 'input[aria-label$="03"]'
+    kind: amount
+  - casilla: "04"
+    label: "Base imponible al 10%"
+    selector: 'input[aria-label$="04"]'
+    kind: amount
+  - casilla: "06"
+    label: "Cuota devengada al 10%"
+    selector: 'input[aria-label$="06"]'
+    kind: amount
+  - casilla: "07"
+    label: "Base imponible al 21%"
+    selector: 'input[aria-label$="07"]'
+    kind: amount
+  - casilla: "09"
+    label: "Cuota devengada al 21%"
+    selector: 'input[aria-label$="09"]'
+    kind: amount
+  - casilla: "10"
+    label: "Adquisiciones intracomunitarias de bienes y servicios"
+    selector: 'input[aria-label$="10"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "11"
+    label: "Cuota devengada por adquisiciones intracomunitarias"
+    selector: 'input[aria-label$="11"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "12"
+    label: "Otras operaciones con inversión del sujeto pasivo"
+    selector: 'input[aria-label$="12"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "13"
+    label: "Cuota devengada por otras operaciones con inversión del sujeto pasivo"
+    selector: 'input[aria-label$="13"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "14"
+    label: "Modificación de bases"
+    selector: 'input[aria-label$="14"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "15"
+    label: "Modificación de cuotas"
+    selector: 'input[aria-label$="15"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "19"
+    label: "Base del recargo de equivalencia al 1,4%"
+    selector: 'input[aria-label$="19"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "21"
+    label: "Cuota del recargo de equivalencia al 1,4%"
+    selector: 'input[aria-label$="21"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "22"
+    label: "Base del recargo de equivalencia al 5,2%"
+    selector: 'input[aria-label$="22"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "24"
+    label: "Cuota del recargo de equivalencia al 5,2%"
+    selector: 'input[aria-label$="24"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "25"
+    label: "Modificación de bases del recargo"
+    selector: 'input[aria-label$="25"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "26"
+    label: "Modificación de cuotas del recargo"
+    selector: 'input[aria-label$="26"]'
+    kind: amount
+    optional: true
+    required: false
+  - casilla: "28"
+    label: "Base deducible en operaciones interiores corrientes"
+    selector: 'input[aria-label$="28"]'
+    kind: amount
+  - casilla: "29"
+    label: "Cuota deducible en operaciones interiores corrientes"
+    selector: 'input[aria-label$="29"]'
+    kind: amount
+  - casilla: "30"
+    label: "Base deducible en bienes de inversión"
+    selector: 'input[aria-label$="30"]'
+    kind: amount
+  - casilla: "31"
+    label: "Cuota deducible en bienes de inversión"
+    selector: 'input[aria-label$="31"]'
+    kind: amount
+  - casilla: "32"
+    label: "Base deducible en importaciones de bienes corrientes"
+    selector: 'input[aria-label$="32"]'
+    kind: amount
+  - casilla: "33"
+    label: "Cuota deducible en importaciones de bienes corrientes"
+    selector: 'input[aria-label$="33"]'
+    kind: amount
+  - casilla: "34"
+    label: "Base deducible en importaciones de bienes de inversión"
+    selector: 'input[aria-label$="34"]'
+    kind: amount
+  - casilla: "35"
+    label: "Cuota deducible en importaciones de bienes de inversión"
+    selector: 'input[aria-label$="35"]'
+    kind: amount
+  - casilla: "36"
+    label: "Base deducible en adquisiciones intracomunitarias corrientes"
+    selector: 'input[aria-label$="36"]'
+    kind: amount
+  - casilla: "37"
+    label: "Cuota deducible en adquisiciones intracomunitarias corrientes"
+    selector: 'input[aria-label$="37"]'
+    kind: amount
+  - casilla: "38"
+    label: "Base deducible en adquisiciones intracomunitarias de bienes de inversión"
+    selector: 'input[aria-label$="38"]'
+    kind: amount
+  - casilla: "39"
+    label: "Cuota deducible en adquisiciones intracomunitarias de bienes de inversión"
+    selector: 'input[aria-label$="39"]'
+    kind: amount
+  - casilla: "40"
+    label: "Rectificación de deducciones (base)"
+    selector: 'input[aria-label$="40"]'
+    kind: amount
+  - casilla: "41"
+    label: "Rectificación de deducciones (cuota)"
+    selector: 'input[aria-label$="41"]'
+    kind: amount
+  - casilla: "42"
+    label: "Compensaciones del régimen especial agrario"
+    selector: 'input[aria-label$="42"]'
+    kind: amount
+  - casilla: "43"
+    label: "Regularización de bienes de inversión"
+    selector: 'input[aria-label$="43"]'
+    kind: amount
+  - casilla: "44"
+    label: "Regularización por porcentaje definitivo de prorrata"
+    selector: 'input[aria-label$="44"]'
+    kind: amount

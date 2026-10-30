@@ -1,6 +1,6 @@
 import type { ExtensionContext } from '../lib/types'
 import type { Adapter, AdapterField, AdapterPreview, PreviewField } from './types'
-import { fieldKey } from './types'
+import { fieldKey, filingExercise } from './types'
 
 const PLACEHOLDER = /\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g
 
@@ -41,7 +41,7 @@ function contextValue(key: string, context: ExtensionContext): string {
     case 'filing.due_date':
       return filing.due_date
     case 'exercise':
-      return (filing.period_start || filing.period_end).slice(0, 4)
+      return filingExercise(filing)
     default:
       return ''
   }
@@ -157,9 +157,29 @@ function previewLabel(field: AdapterField, context: ExtensionContext): string {
   return context.filing.computed?.lines?.find((line) => line.id === field.casilla)?.label ?? field.label
 }
 
+function noDataField(field: AdapterField, context: ExtensionContext): PreviewField {
+  return {
+    key: fieldKey(field),
+    casilla: field.casilla,
+    label: previewLabel(field, context),
+    current: '',
+    next: '',
+    status: 'no-data',
+    overwrite: false,
+  }
+}
+
+export function missingData(adapter: Adapter, context: ExtensionContext): PreviewField[] {
+  return adapter.fields
+    .filter((field) => field.required !== false)
+    .filter((field) => !resolveValue(expressionFor(field), context).trim())
+    .map((field) => noDataField(field, context))
+}
+
 export function previewAdapter(adapter: Adapter, context: ExtensionContext): AdapterPreview {
+  const dataMissing = missingData(adapter, context)
   if (!adapterPageReady(adapter)) {
-    return { pageReady: false, fields: [], changes: [], missing: [], locked: [] }
+    return { pageReady: false, fields: [], changes: [], missing: [], locked: [], dataMissing }
   }
 
   const fields: PreviewField[] = []
@@ -219,6 +239,7 @@ export function previewAdapter(adapter: Adapter, context: ExtensionContext): Ada
     changes: fields.filter((field) => field.status === 'change'),
     missing: fields.filter((field) => field.status === 'missing'),
     locked: fields.filter((field) => field.status === 'locked'),
+    dataMissing,
   }
 }
 
@@ -246,6 +267,9 @@ export async function applyAdapter(
   adapter: Adapter,
   context: ExtensionContext,
 ): Promise<{ applied: number; skipped: number }> {
+  if (['presented', 'not_applicable'].includes(context.filing.status)) {
+    throw new Error('Este expediente está presentado o no aplica; no se puede rellenar')
+  }
   if (!adapter.verified) throw new Error('Este adaptador todavía no está verificado para el ejercicio actual')
   if (!adapterPageReady(adapter)) {
     throw new Error(adapter.pageHint ?? 'Abre la página correcta del formulario y vuelve a intentarlo.')
@@ -255,6 +279,16 @@ export async function applyAdapter(
   if (preview.missing.length) {
     throw new Error(
       `No encuentro ${preview.missing.length} campo(s) del formulario. ${adapter.pageHint ?? 'Abre la página correcta y vuelve a intentarlo.'}`,
+    )
+  }
+  if (preview.dataMissing.length) {
+    const labels = preview.dataMissing
+      .slice(0, 5)
+      .map((field) => (field.casilla ? `${field.casilla} (${field.label})` : field.label))
+      .join(', ')
+    const extra = preview.dataMissing.length > 5 ? ` y ${preview.dataMissing.length - 5} más` : ''
+    throw new Error(
+      `Faltan ${preview.dataMissing.length} valor(es) en el ERP: ${labels}${extra}. Revisa el cálculo antes de rellenar.`,
     )
   }
 

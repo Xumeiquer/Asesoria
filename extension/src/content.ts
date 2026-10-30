@@ -1,4 +1,4 @@
-import { applyAdapter, filingExercise, getAdapter, previewAdapter } from './adapters'
+import { adapterForPage, applyAdapter, filingExercise, previewAdapter } from './adapters'
 import type { AdapterPreview } from './adapters'
 import { priorExerciseLabel } from './lib/fiscal'
 import type { ExtensionContext } from './lib/types'
@@ -95,10 +95,21 @@ async function downloadDocument(id: string, filename: string): Promise<void> {
 function panelMarkup(context: ExtensionContext): string {
   const lines = context.filing.computed?.lines ?? []
   const warnings = context.filing.computed?.warnings ?? []
-  const adapter = getAdapter(context.filing.model_code, filingExercise(context.filing))
+  const adapter = adapterForPage(
+    context.filing.model_code,
+    filingExercise(context.filing),
+    context.filing.entity,
+  )
+  const preview = adapter ? previewAdapter(adapter, context) : null
+  const dataMissing = preview?.dataMissing ?? []
+  const noDataText = dataMissing
+    .slice(0, 5)
+    .map((field) => (field.casilla ? `${field.casilla} (${field.label})` : field.label))
+    .join(', ')
   const canFill = Boolean(
     adapter?.verified &&
       adapter.fields.length &&
+      !dataMissing.length &&
       context.filing.status !== 'presented' &&
       context.filing.status !== 'not_applicable',
   )
@@ -162,6 +173,13 @@ function panelMarkup(context: ExtensionContext): string {
             ? '<div class="banner info">El relleno asistido de este modelo está en preparación. Puedes copiar las casillas y presentarlas manualmente.</div>'
             : ''
         }
+        ${
+          dataMissing.length
+            ? `<div class="banner warn">Faltan ${dataMissing.length} valor(es) en el ERP: ${escapeHtml(
+                noDataText,
+              )}${dataMissing.length > 5 ? ` y ${dataMissing.length - 5} más` : ''}. Revisa el cálculo antes de rellenar.</div>`
+            : ''
+        }
         <div class="banner ok" data-fill-result hidden></div>
 
         <div class="section-title">
@@ -197,6 +215,15 @@ function panelMarkup(context: ExtensionContext): string {
           ${canFill ? '<button class="btn primary" data-act="fill">Revisar relleno</button>' : ''}
           <button class="btn" data-act="erp">Abrir ERP</button>
         </div>
+        ${
+          adapter
+            ? `<p class="note">Adaptador ${escapeHtml(adapter.code)}/${escapeHtml(
+                adapter.exercise ?? '',
+              )} · v${escapeHtml(adapter.version)} · actualizado ${escapeHtml(
+                adapter.updatedAt,
+              )} · ${adapter.verified ? 'verificado' : 'en preparación'}.</p>`
+            : ''
+        }
 
         <div class="section-title">
           <span>Documentación</span>
@@ -442,7 +469,11 @@ function mount(context: ExtensionContext): void {
   })
 
   shadow.querySelector('[data-act="fill"]')?.addEventListener('click', () => {
-    const adapter = getAdapter(context.filing.model_code, filingExercise(context.filing))
+    const adapter = adapterForPage(
+      context.filing.model_code,
+      filingExercise(context.filing),
+      context.filing.entity,
+    )
     if (!adapter) return
     try {
       const preview = previewAdapter(adapter, context)
@@ -455,6 +486,14 @@ function mount(context: ExtensionContext): void {
           `No encuentro ${preview.missing.length} campo(s). ${adapter.pageHint ?? 'Abre la página correcta y vuelve a intentarlo.'}`,
           true,
         )
+        return
+      }
+      if (preview.dataMissing.length) {
+        const labels = preview.dataMissing
+          .slice(0, 5)
+          .map((field) => (field.casilla ? `${field.casilla} (${field.label})` : field.label))
+          .join(', ')
+        flash(`Faltan ${preview.dataMissing.length} valor(es) en el ERP: ${labels}`, true)
         return
       }
       if (!preview.changes.length) {
@@ -470,7 +509,11 @@ function mount(context: ExtensionContext): void {
   })
 
   reviewApply.addEventListener('click', async () => {
-    const adapter = getAdapter(context.filing.model_code, filingExercise(context.filing))
+    const adapter = adapterForPage(
+      context.filing.model_code,
+      filingExercise(context.filing),
+      context.filing.entity,
+    )
     if (!adapter) return
     reviewApply.disabled = true
     try {

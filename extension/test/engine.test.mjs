@@ -14,6 +14,7 @@ const fixture = `<!doctype html>
     <input aria-label=" 04" />
     <input aria-label=" 06" />
     <input aria-label=" 07" disabled />
+    <input aria-label=" 08" />
   </body>
 </html>`
 
@@ -146,15 +147,54 @@ test('bloquea la aplicación si falta un campo obligatorio o la página no es la
   }
   assert.equal(engine.previewAdapter(wrongPage, context).pageReady, false)
   await assert.rejects(() => engine.applyAdapter(wrongPage, context), /Abre la página correcta/)
+
+  const valid = {
+    code: 'TEST',
+    version: '1',
+    verified: true,
+    page: { contains: ['IVA devengado'] },
+    fields: [{ casilla: '01', label: 'Base al 4%', selector: 'input[aria-label$="01"]' }],
+  }
+  for (const status of ['presented', 'not_applicable']) {
+    const closed = { ...context, filing: { ...context.filing, status } }
+    await assert.rejects(() => engine.applyAdapter(valid, closed), /presentado o no aplica/)
+  }
 })
 
-test('selecciona el adaptador por modelo y ejercicio', () => {
-  const aeat303 = engine.getAdapter('303', '2026')
+test('bloquea el relleno si falta un valor requerido en el ERP', async () => {
+  const noData = {
+    code: 'TEST',
+    version: '1',
+    verified: true,
+    page: { contains: ['IVA devengado'] },
+    fields: [{ casilla: '08', label: 'Dato sin calcular', selector: 'input[aria-label$="08"]' }],
+  }
+  const preview = engine.previewAdapter(noData, context)
+  assert.equal(preview.pageReady, true)
+  assert.equal(preview.dataMissing.length, 1)
+  assert.equal(preview.dataMissing[0].casilla, '08')
+  await assert.rejects(() => engine.applyAdapter(noData, context), /Faltan 1 valor/)
+})
+
+test('selecciona el adaptador declarativo por organismo, modelo y ejercicio', () => {
+  const aeat303 = engine.getAdapter('303', '2026', 'AEAT')
+  assert.equal(aeat303?.entity, 'AEAT')
   assert.equal(aeat303?.verified, true)
   assert.equal(aeat303?.exercise, '2026')
+  assert.equal(aeat303?.version, '2026.1')
+  assert.equal(aeat303?.updatedAt, '2026-10-30')
+  assert.equal(aeat303?.fields.length, 36)
+  assert.equal(aeat303?.fields.find((field) => field.casilla === '10')?.required, false)
+  assert.equal(
+    engine.missingData(aeat303, context).some((field) => field.casilla === '10'),
+    false,
+  )
+  assert.equal(engine.getAdapter('303', '2026', 'TGSS'), undefined)
   assert.equal(engine.getAdapter('303', '2025'), undefined)
+  assert.equal(engine.adapterForPage('303', '2026', 'AEAT')?.code, '303')
 
-  const aeat130 = engine.getAdapter('130', '2026')
+  const aeat130 = engine.getAdapter('130', '2026', 'AEAT')
   assert.equal(aeat130?.verified, false)
   assert.equal(aeat130?.fields.length, 7)
+  assert.equal(aeat130?.fields.every((field) => field.required !== false), true)
 })

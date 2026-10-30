@@ -1,0 +1,108 @@
+name: Formulario oficial
+description: Añadir o actualizar un adaptador de relleno en forms/
+title: "[Formulario]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Usa esta plantilla para proponer un modelo nuevo o una revisión de un formulario existente. La guía y el esquema están en [`forms/README.md`](https://github.com/Xumeiquer/Asesoria/blob/main/forms/README.md).
+
+        No incluyas datos personales, NIF reales, importes reales, certificados, contraseñas ni HTML con datos de contribuyentes. Usa el simulador o HTML saneado.
+
+  - type: dropdown
+    id: organismo
+    attributes:
+      label: Organismo
+      options:
+        - AEAT
+        - TGSS
+        - Registro Mercantil
+        - Otro (requiere ampliar el esquema)
+    validations:
+      required: true
+
+  - type: input
+    id: modelo
+    attributes:
+      label: Modelo o trámite
+      description: Código oficial, por ejemplo 303.
+      placeholder: "303"
+    validations:
+      required: true
+
+  - type: input
+    id: ejercicio
+    attributes:
+      label: Ejercicio
+      placeholder: "2026"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Revisión propuesta
+      description: Si el formulario cambia, usa una revisión nueva; no sobrescribas una ya verificada.
+      placeholder: "2026.2"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: URL del formulario o simulador
+      placeholder: https://www2.agenciatributaria.gob.es/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: cambio
+    attributes:
+      label: Qué cambia
+      description: Explica si es un modelo nuevo, un cambio de página, de selectores, de casillas o de datos requeridos.
+    validations:
+      required: true
+
+  - type: textarea
+    id: campos
+    attributes:
+      label: Campos y selectores
+      description: Si ya los tienes, indica casilla, etiqueta, selector y si el campo es opcional o requerido.
+      render: yaml
+    validations:
+      required: false
+
+  - type: dropdown
+    id: validacion
+    attributes:
+      label: Cómo se ha comprobado
+      options:
+        - Simulador público oficial
+        - Formulario real con datos de demostración
+        - HTML saneado del formulario autenticado
+        - Pendiente de verificar
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidencia saneada
+      description: Capturas, fragmentos de HTML sin datos personales o pasos de reproducción.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: comprobaciones
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: He leído forms/README.md y respetado la ruta y el esquema.
+          required: true
+        - label: No incluyo datos personales, certificados ni secretos.
+          required: true
+        - label: El adaptador solo rellena y revisa; no firma, no presenta y no accede a certificado, Cl@ve ni DNIe.
+          required: true
+        - label: Si marco la revisión como verificada, documento la URL en verifiedAgainst.
+          required: false
