@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Xumeiquer/asesoria/internal/docmeta"
 	"github.com/Xumeiquer/asesoria/internal/domain"
 	"gopkg.in/yaml.v3"
 )
@@ -30,7 +31,10 @@ type Model struct {
 	Applies     Applies   `yaml:"applies" json:"applies"`
 	Schedule    *Schedule `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	Documents   []string  `yaml:"documents" json:"documents"`
-	Notes       string    `yaml:"notes" json:"notes"`
+	// DocumentRequirements is derived from Documents and maps every checklist
+	// item to the document type and library folder used by uploads.
+	DocumentRequirements []docmeta.Requirement `yaml:"-" json:"document_requirements"`
+	Notes                string                `yaml:"notes" json:"notes"`
 }
 
 // Applies is a set of conditions. Empty fields mean "no constraint".
@@ -97,6 +101,13 @@ func Load() (*Catalog, error) {
 	for i := range f.Models {
 		if f.Models[i].UpdatedAt == "" {
 			f.Models[i].UpdatedAt = f.UpdatedAt
+		}
+		f.Models[i].DocumentRequirements = make([]docmeta.Requirement, 0, len(f.Models[i].Documents))
+		for _, label := range f.Models[i].Documents {
+			f.Models[i].DocumentRequirements = append(
+				f.Models[i].DocumentRequirements,
+				docmeta.RequirementFor(label),
+			)
 		}
 	}
 	c := &Catalog{

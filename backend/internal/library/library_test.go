@@ -37,6 +37,8 @@ func TestFolderNameAndTree(t *testing.T) {
 		filepath.Join("2025", "1T", "Facturas emitidas"),
 		filepath.Join("2025", "4T", "Nóminas"),
 		filepath.Join("2025", "Anual", "Modelos"),
+		filepath.Join("2025", "2T", "Libros registro"),
+		filepath.Join("2025", "2T", "Cuentas anuales"),
 	} {
 		if info, err := os.Stat(filepath.Join(base, rel)); err != nil || !info.IsDir() {
 			t.Fatalf("missing %s: %v", rel, err)
@@ -194,6 +196,23 @@ func TestScanAndIngest(t *testing.T) {
 	}
 	if upload.Kind != "nomina" || upload.LibraryPath == "" {
 		t.Fatalf("unexpected upload: %+v", upload)
+	}
+	requirementUpload, err := svc.Ingest(ctx, UploadInput{
+		Taxpayer:            taxpayer,
+		Filename:            "libro_registro_2025.txt",
+		MIME:                "text/plain",
+		DocDate:             "2025-06-30",
+		DocumentRequirement: "Libro registro de facturas emitidas y recibidas",
+		Reader:              strings.NewReader("Libro registro de facturas emitidas y recibidas\n"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requirementUpload.Kind != "libro_registro" || !strings.Contains(requirementUpload.LibraryPath, "Libros registro") {
+		t.Fatalf("requirement upload not classified: %+v", requirementUpload)
+	}
+	if got := requirementUpload.Metadata["document_requirement"]; got != "Libro registro de facturas emitidas y recibidas" {
+		t.Fatalf("missing requirement metadata: %v", got)
 	}
 	_, err = svc.Ingest(ctx, UploadInput{
 		Taxpayer: taxpayer,

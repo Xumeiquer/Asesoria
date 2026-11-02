@@ -192,12 +192,17 @@ onMounted(load)
         <div>
           <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Documentación necesaria</h3>
           <ul class="space-y-1.5">
-            <li v-for="doc in selected.documents" :key="doc" class="flex items-start gap-2 text-sm text-slate-600">
+            <li
+              v-for="doc in selected.document_requirements"
+              :key="doc.label"
+              class="flex items-start gap-2 text-sm text-slate-600"
+            >
               <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              {{ doc }}
+              <span class="min-w-0 flex-1">{{ doc.label }}</span>
+              <span class="chip shrink-0 bg-slate-100 text-slate-500">{{ doc.folder }}</span>
             </li>
           </ul>
-          <p v-if="!selected.documents.length" class="text-sm text-slate-400">Sin checklist específica.</p>
+          <p v-if="!selected.document_requirements.length" class="text-sm text-slate-400">Sin checklist específica.</p>
         </div>
 
         <div v-if="selected.notes" class="rounded-xl border border-amber-200 bg-amber-50 p-4">

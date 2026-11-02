@@ -21,7 +21,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, bytes, dateLabel, euros } from '@/api'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
-import type { DocumentItem, LibraryConfig, ScanResult } from '@/types'
+import type { DocumentItem, DocumentRequirement, Filing, LibraryConfig, Model, ScanResult } from '@/types'
 
 const store = useAppStore()
 const toasts = useToasts()
@@ -41,6 +41,10 @@ const kind = ref('factura_recibida')
 const docDate = ref(localISODate())
 const amount = ref('')
 const counterparty = ref('')
+const catalog = ref<Model[]>([])
+const filings = ref<Filing[]>([])
+const filingId = ref('')
+const requirementKey = ref('')
 
 const reviewOpen = ref(false)
 const reviewDoc = ref<DocumentItem | null>(null)
@@ -57,19 +61,9 @@ const reviewForm = ref({
 const confirmDoc = ref<DocumentItem | null>(null)
 const deleting = ref(false)
 
-const kinds = [
-  { value: 'factura_emitida', label: 'Factura emitida' },
-  { value: 'factura_recibida', label: 'Factura recibida' },
-  { value: 'factura', label: 'Factura (sin determinar)' },
-  { value: 'nomina', label: 'Nómina' },
-  { value: 'recibo', label: 'Recibo' },
-  { value: 'justificante', label: 'Justificante' },
-  { value: 'modelo', label: 'Modelo presentado' },
-  { value: 'contrato', label: 'Contrato' },
-  { value: 'seguro', label: 'Seguro' },
-  { value: 'banco', label: 'Banco' },
-  { value: 'other', label: 'Otro' },
-]
+const kinds = computed(() =>
+  (store.meta?.document_kinds ?? []).map((item) => ({ value: item.id, label: item.label, folder: item.folder })),
+)
 
 function localISODate(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -95,6 +89,26 @@ const hasFilters = computed(() => Boolean(search.value.trim() || kindFilter.valu
 const reviewReasons = computed(() => {
   const raw = reviewDoc.value?.metadata?.review_reasons ?? reviewDoc.value?.metadata?.reasons
   return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : []
+})
+const applicableModels = computed(() =>
+  catalog.value.filter((model) => model.applicable && (model.document_requirements?.length ?? 0) > 0),
+)
+const selectedKindFolder = computed(
+  () => kinds.value.find((item) => item.value === kind.value)?.folder ?? 'Otros',
+)
+const selectedFiling = computed(() => filings.value.find((item) => item.id === filingId.value) ?? null)
+const availableModels = computed(() => {
+  const code = selectedFiling.value?.model_code
+  if (!code) return applicableModels.value
+  return catalog.value.filter((model) => model.code === code && (model.document_requirements?.length ?? 0) > 0)
+})
+const selectedRequirement = computed<{ model: Model; requirement: DocumentRequirement } | null>(() => {
+  if (!requirementKey.value) return null
+  const [code, indexRaw] = requirementKey.value.split(':')
+  const index = Number(indexRaw)
+  const model = catalog.value.find((item) => item.code === code)
+  const requirement = model?.document_requirements?.[index]
+  return model && requirement ? { model, requirement } : null
 })
 
 function reasonLabel(reason: string): string {
@@ -137,6 +151,43 @@ async function loadLibrary() {
   } catch {
     library.value = null
   }
+}
+
+async function loadContext() {
+  if (!store.selectedId) {
+    catalog.value = []
+    filings.value = []
+    filingId.value = ''
+    requirementKey.value = ''
+    return
+  }
+  try {
+    const taxpayer = encodeURIComponent(store.selectedId)
+    const [catalogResponse, openFilings] = await Promise.all([
+      api.get<{ models: Model[] }>(`/catalog?taxpayer_id=${taxpayer}`),
+      api.get<Filing[]>(`/filings?taxpayer_id=${taxpayer}&status=pending,in_progress,ready`),
+    ])
+    catalog.value = catalogResponse.models
+    filings.value = openFilings
+    if (filingId.value && !openFilings.some((item) => item.id === filingId.value)) {
+      filingId.value = ''
+      requirementKey.value = ''
+    }
+  } catch (error) {
+    catalog.value = []
+    filings.value = []
+    toasts.error(error instanceof Error ? error.message : 'No se pudo cargar la documentación de los modelos')
+  }
+}
+
+function requirementLabel(doc: DocumentItem): string {
+  const value = doc.metadata?.document_requirement
+  return typeof value === 'string' ? value : ''
+}
+
+function applyRequirement() {
+  const selected = selectedRequirement.value
+  if (selected) kind.value = selected.requirement.kind
 }
 
 async function scanLibrary() {
@@ -258,6 +309,12 @@ async function upload() {
       if (docDate.value) form.set('doc_date', docDate.value)
       if (amount.value) form.set('amount', amount.value)
       if (counterparty.value) form.set('counterparty_nif', counterparty.value)
+      if (filingId.value) form.set('filing_id', filingId.value)
+      const selected = selectedRequirement.value
+      if (selected) {
+        form.set('model_code', selected.model.code)
+        form.set('document_requirement', selected.requirement.label)
+      }
       try {
         const doc = await api.upload<DocumentItem>('/documents', form)
         uploaded++
@@ -277,6 +334,7 @@ async function upload() {
     selectedFiles.value = failedFiles
     amount.value = ''
     counterparty.value = ''
+    requirementKey.value = ''
     if (fileInput.value) fileInput.value.value = ''
     await load()
     if (reviewTarget) openReview(reviewTarget)
@@ -315,7 +373,7 @@ function clearFilters() {
 }
 
 function kindLabel(value: string): string {
-  return kinds.find((item) => item.value === value)?.label ?? value
+  return kinds.value.find((item) => item.value === value)?.label ?? value
 }
 
 function isImage(doc: DocumentItem): boolean {
@@ -334,10 +392,20 @@ function downloadURL(doc: DocumentItem): string {
   return `/api/documents/${doc.id}/download`
 }
 
-watch(() => store.selectedId, load)
+watch(() => store.selectedId, () => {
+  requirementKey.value = ''
+  filingId.value = ''
+  load()
+  loadContext()
+})
 watch(reviewFilter, load)
+watch(filingId, () => {
+  requirementKey.value = ''
+})
+watch(requirementKey, applyRequirement)
 onMounted(() => {
   load()
+  loadContext()
   loadLibrary()
 })
 </script>
@@ -346,7 +414,7 @@ onMounted(() => {
   <div>
     <PageHeader
       title="Documentos"
-      subtitle="Facturas, nóminas, recibos y justificantes del contribuyente activo. La biblioteca organiza los originales en tu equipo y extrae el texto en local."
+      subtitle="Facturas, nóminas, libros registro, certificados y documentación de los modelos del contribuyente activo. La biblioteca organiza los originales en tu equipo y extrae el texto en local."
     >
       <template #actions>
         <button v-if="library?.configured" class="btn-ghost" :disabled="scanning" @click="scanLibrary">
@@ -436,7 +504,8 @@ onMounted(() => {
         </div>
 
         <p class="mt-3 text-[11px] text-slate-500">
-          Los datos de tipo, fecha, importe y NIF se aplican a todos los ficheros seleccionados.
+          El tipo, el expediente, el documento solicitado, la fecha, el importe y el NIF se aplican a todos los
+          ficheros seleccionados.
         </p>
 
         <div class="mt-4 space-y-3">
@@ -445,6 +514,43 @@ onMounted(() => {
             <select id="upload-kind" v-model="kind" class="input">
               <option v-for="item in kinds" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
+            <p class="mt-1 text-[11px] text-slate-500">
+              Carpeta: <span class="font-semibold text-slate-700">{{ selectedKindFolder }}</span>
+            </p>
+          </div>
+          <div>
+            <label class="label" for="upload-filing">Expediente del modelo (opcional)</label>
+            <select id="upload-filing" v-model="filingId" class="input">
+              <option value="">Sin expediente concreto</option>
+              <option v-for="item in filings" :key="item.id" :value="item.id">
+                {{ item.model_code }} · {{ item.period_label }} · {{ item.model_name }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="label" for="upload-requirement">Documento solicitado (opcional)</label>
+            <select id="upload-requirement" v-model="requirementKey" class="input">
+              <option value="">Ninguno</option>
+              <optgroup
+                v-for="model in availableModels"
+                :key="model.code"
+                :label="`${model.code} · ${model.name}`"
+              >
+                <option
+                  v-for="(requirement, index) in model.document_requirements"
+                  :key="`${model.code}-${index}`"
+                  :value="`${model.code}:${index}`"
+                >
+                  {{ requirement.label }} — {{ requirement.folder }}
+                </option>
+              </optgroup>
+            </select>
+            <p v-if="selectedRequirement" class="mt-1 text-[11px] text-slate-500">
+              Se archivará en <span class="font-semibold text-slate-700">{{ selectedRequirement.requirement.folder }}</span>.
+            </p>
+            <p v-else-if="!availableModels.length" class="mt-1 text-[11px] text-slate-400">
+              No hay documentos de modelo disponibles para el contribuyente activo.
+            </p>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -551,7 +657,7 @@ onMounted(() => {
                       <div class="min-w-0">
                         <p class="max-w-[18rem] truncate text-sm font-semibold text-slate-800">{{ doc.filename }}</p>
                         <p class="max-w-[18rem] truncate text-[11px] text-slate-400">
-                          {{ doc.text_excerpt || doc.counterparty_nif || doc.mime }}
+                          {{ requirementLabel(doc) || doc.text_excerpt || doc.counterparty_nif || doc.mime }}
                         </p>
                       </div>
                     </button>
