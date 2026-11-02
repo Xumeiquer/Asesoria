@@ -7,6 +7,7 @@ import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, centsFromEuros, dateLabel, euros } from '@/api'
+import { calendarSyncLabel } from '@/fiscal'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
 import type {
@@ -270,11 +271,16 @@ async function save() {
     }
     if (editingId.value) {
       const result = await api.put<TaxpayerMutationResult>(`/taxpayers/${editingId.value}`, payload)
-      toasts.success(
-        result.generated_filings
-          ? `Contribuyente actualizado · ${result.generated_filings} nuevos vencimientos`
-          : 'Contribuyente actualizado',
-      )
+      const summary = result.calendar_sync
+        ? `calendario ${calendarSyncLabel(result.calendar_sync)}`
+        : result.generated_filings
+          ? `${result.generated_filings} nuevos vencimientos`
+          : 'sin cambios'
+      if (result.calendar_sync_error) {
+        toasts.error(`Contribuyente actualizado, pero no se pudo recalcular el calendario: ${result.calendar_sync_error}`)
+      } else {
+        toasts.success(`Contribuyente actualizado · ${summary}`)
+      }
     } else {
       const created = await api.post<TaxpayerMutationResult>('/taxpayers', payload)
       toasts.success(
@@ -498,8 +504,9 @@ onMounted(async () => {
         </ol>
 
         <p v-if="editingId" class="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-          Cambiar el perfil fiscal puede añadir nuevos vencimientos. Al guardar se actualizará el calendario de este
-          ejercicio y del siguiente; revisa después los modelos aplicables.
+          Cambiar el perfil fiscal o el inicio de actividad recalcula el calendario de este ejercicio y del siguiente:
+          añade los vencimientos que faltan, actualiza sus fechas y retira de la cola los que dejan de aplicar. Los
+          presentados se conservan.
         </p>
 
         <template v-if="step === 1">
@@ -643,7 +650,7 @@ onMounted(async () => {
             />
             <p v-if="errors.activity_start" class="mt-1 text-xs text-rose-600">{{ errors.activity_start }}</p>
             <p v-else class="mt-1 text-[11px] text-slate-500">
-              Fecha real desde la que se generan los vencimientos.
+              Fecha real desde la que se generan los vencimientos. Al cambiarla se recalcula el calendario.
             </p>
           </div>
           <div>

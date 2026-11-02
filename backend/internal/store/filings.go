@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Xumeiquer/asesoria/internal/domain"
@@ -52,7 +54,7 @@ func (s *Store) ListFilings(ctx context.Context, f FilingFilter) ([]domain.Filin
 		where = append(where, "status IN ("+strings.Join(placeholders, ",")+")")
 	}
 	query := `SELECT id, taxpayer_id, model_code, model_name, entity, period_label,
-		period_start, period_end, due_date, status, data_json, computed_json, notes,
+		period_start, period_end, due_date, status, auto_hidden, data_json, computed_json, notes,
 		presented_at, receipt_document_id, created_at, updated_at
 		FROM filings WHERE ` + strings.Join(where, " AND ") + ` ORDER BY due_date ASC, model_code ASC`
 	if f.Limit > 0 {
@@ -76,7 +78,7 @@ func (s *Store) ListFilings(ctx context.Context, f FilingFilter) ([]domain.Filin
 
 func (s *Store) GetFiling(ctx context.Context, id string) (domain.Filing, error) {
 	row := s.DB.QueryRowContext(ctx, `SELECT id, taxpayer_id, model_code, model_name, entity,
-		period_label, period_start, period_end, due_date, status, data_json, computed_json,
+		period_label, period_start, period_end, due_date, status, auto_hidden, data_json, computed_json,
 		notes, presented_at, receipt_document_id, created_at, updated_at
 		FROM filings WHERE id = ?`, id)
 	f, err := scanFiling(row)
@@ -119,13 +121,193 @@ func (s *Store) UpsertFilings(ctx context.Context, filings []domain.Filing) (int
 	return inserted, tx.Commit()
 }
 
+// FilingSyncResult summarises a calendar recalculation.
+type FilingSyncResult struct {
+	Inserted      int `json:"inserted"`
+	Updated       int `json:"updated"`
+	Hidden        int `json:"hidden"`
+	Restored      int `json:"restored"`
+	KeptPresented int `json:"kept_presented"`
+}
+
+// SyncFilings reconciles the calendar for the given due-date years with the
+// generated entries. Missing filings are inserted, existing metadata and dates
+// are refreshed, and filings that no longer apply are retired as
+// not_applicable. Presented filings are never modified or hidden, and manual
+// not_applicable decisions are preserved. Filings retired automatically are
+// restored when they become applicable again.
+func (s *Store) SyncFilings(ctx context.Context, taxpayerID string, generated []domain.Filing, years []int) (FilingSyncResult, error) {
+	result := FilingSyncResult{}
+	yearSet := make(map[int]struct{}, len(years))
+	for _, year := range years {
+		if year > 0 {
+			yearSet[year] = struct{}{}
+		}
+	}
+	for _, f := range generated {
+		if year := dueYear(f.DueDate); year > 0 {
+			yearSet[year] = struct{}{}
+		}
+	}
+	if len(yearSet) == 0 {
+		return result, nil
+	}
+
+	yearValues := make([]int, 0, len(yearSet))
+	for year := range yearSet {
+		yearValues = append(yearValues, year)
+	}
+	sort.Ints(yearValues)
+	placeholders := make([]string, len(yearValues))
+	args := make([]any, 0, len(yearValues)+1)
+	args = append(args, taxpayerID)
+	for i, year := range yearValues {
+		placeholders[i] = "?"
+		args = append(args, year)
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return result, err
+	}
+	defer tx.Rollback()
+
+	query := `SELECT id, taxpayer_id, model_code, model_name, entity, period_label,
+		period_start, period_end, due_date, status, auto_hidden, data_json, computed_json, notes,
+		presented_at, receipt_document_id, created_at, updated_at
+		FROM filings
+		WHERE taxpayer_id = ? AND CAST(substr(due_date, 1, 4) AS INTEGER) IN (` +
+		strings.Join(placeholders, ",") + `)`
+	rows, err := tx.QueryContext(ctx, query, args...)
+	if err != nil {
+		return result, err
+	}
+	existing := make(map[string]domain.Filing)
+	for rows.Next() {
+		f, err := scanFiling(rows)
+		if err != nil {
+			rows.Close()
+			return result, err
+		}
+		existing[filingKey(f)] = f
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return result, err
+	}
+	rows.Close()
+
+	now := Now()
+	seen := make(map[string]struct{}, len(generated))
+	for _, f := range generated {
+		if f.TaxpayerID == "" {
+			f.TaxpayerID = taxpayerID
+		}
+		key := filingKey(f)
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		old, exists := existing[key]
+		if !exists {
+			status := f.Status
+			if status == "" {
+				status = domain.StatusPending
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO filings
+				(id, taxpayer_id, model_code, model_name, entity, period_label, period_start, period_end,
+				 due_date, status, data_json, computed_json, notes, auto_hidden, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', '{}', '', 0, ?, ?)`,
+				NewID(), f.TaxpayerID, f.ModelCode, f.ModelName, f.Entity, f.PeriodLabel,
+				f.PeriodStart, f.PeriodEnd, f.DueDate, status, now, now); err != nil {
+				return result, err
+			}
+			result.Inserted++
+			continue
+		}
+
+		nextStatus := old.Status
+		nextAutoHidden := old.AutoHidden
+		restored := false
+		if old.AutoHidden {
+			nextAutoHidden = false
+			if old.Status == domain.StatusNotApplicable {
+				nextStatus = domain.StatusPending
+				restored = true
+			}
+		}
+		changed := restored ||
+			nextAutoHidden != old.AutoHidden ||
+			old.ModelName != f.ModelName ||
+			old.Entity != f.Entity ||
+			old.PeriodStart != f.PeriodStart ||
+			old.PeriodEnd != f.PeriodEnd ||
+			old.DueDate != f.DueDate
+		if !changed {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE filings SET
+			model_name = ?, entity = ?, period_start = ?, period_end = ?, due_date = ?,
+			status = ?, auto_hidden = ?, updated_at = ?
+			WHERE id = ?`,
+			f.ModelName, f.Entity, f.PeriodStart, f.PeriodEnd, f.DueDate,
+			nextStatus, boolInt(nextAutoHidden), now, old.ID); err != nil {
+			return result, err
+		}
+		result.Updated++
+		if restored {
+			result.Restored++
+		}
+	}
+
+	for key, old := range existing {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		if old.Status == domain.StatusPresented {
+			result.KeptPresented++
+			continue
+		}
+		if old.Status == domain.StatusNotApplicable {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE filings SET
+			status = ?, auto_hidden = 1, updated_at = ?
+			WHERE id = ?`, domain.StatusNotApplicable, now, old.ID); err != nil {
+			return result, err
+		}
+		result.Hidden++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func filingKey(f domain.Filing) string {
+	return f.ModelCode + "\x00" + f.PeriodLabel
+}
+
+func dueYear(value string) int {
+	if len(value) < 4 {
+		return 0
+	}
+	year, err := strconv.Atoi(value[:4])
+	if err != nil {
+		return 0
+	}
+	return year
+}
+
 func (s *Store) UpdateFiling(ctx context.Context, f *domain.Filing) error {
 	f.UpdatedAt = Now()
 	res, err := s.DB.ExecContext(ctx, `UPDATE filings SET
-		status = ?, data_json = ?, computed_json = ?, notes = ?,
+		status = ?, auto_hidden = ?, data_json = ?, computed_json = ?, notes = ?,
 		presented_at = ?, receipt_document_id = ?, updated_at = ?
 		WHERE id = ?`,
-		f.Status, jsonString(f.Data), jsonString(f.Computed), f.Notes,
+		f.Status, boolInt(f.AutoHidden), jsonString(f.Data), jsonString(f.Computed), f.Notes,
 		nullStringPtr(f.PresentedAt), nullStringPtr(f.ReceiptDocumentID), f.UpdatedAt, f.ID)
 	if err != nil {
 		return err
@@ -143,7 +325,7 @@ func (s *Store) MarkPresented(ctx context.Context, id, receiptDocumentID string)
 		receipt = receiptDocumentID
 	}
 	res, err := s.DB.ExecContext(ctx, `UPDATE filings
-		SET status = 'presented', presented_at = ?, receipt_document_id = ?, updated_at = ?
+		SET status = 'presented', auto_hidden = 0, presented_at = ?, receipt_document_id = ?, updated_at = ?
 		WHERE id = ?`, now, receipt, now, id)
 	if err != nil {
 		return err
@@ -155,7 +337,7 @@ func (s *Store) MarkPresented(ctx context.Context, id, receiptDocumentID string)
 }
 
 func (s *Store) SetFilingStatus(ctx context.Context, id, status string) error {
-	res, err := s.DB.ExecContext(ctx, `UPDATE filings SET status = ?, updated_at = ? WHERE id = ?`, status, Now(), id)
+	res, err := s.DB.ExecContext(ctx, `UPDATE filings SET status = ?, auto_hidden = 0, updated_at = ? WHERE id = ?`, status, Now(), id)
 	if err != nil {
 		return err
 	}
@@ -177,7 +359,7 @@ func (s *Store) BulkSetFilingStatus(ctx context.Context, ids []string, status st
 		placeholders[i] = "?"
 	}
 	now := Now()
-	query := `UPDATE filings SET status = ?`
+	query := `UPDATE filings SET status = ?, auto_hidden = 0`
 	args := []any{status}
 	if status == domain.StatusPresented {
 		query += `, presented_at = ?, receipt_document_id = NULL`
@@ -205,7 +387,7 @@ func anyIDs(ids []string) []any {
 
 func (s *Store) PreviousFilings(ctx context.Context, taxpayerID, modelCode string, year int, beforePeriodStart string) ([]domain.Filing, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id, taxpayer_id, model_code, model_name, entity,
-		period_label, period_start, period_end, due_date, status, data_json, computed_json,
+		period_label, period_start, period_end, due_date, status, auto_hidden, data_json, computed_json,
 		notes, presented_at, receipt_document_id, created_at, updated_at
 		FROM filings
 		WHERE taxpayer_id = ? AND model_code = ? AND period_start >= ? AND period_start < ?
@@ -229,14 +411,16 @@ func (s *Store) PreviousFilings(ctx context.Context, taxpayerID, modelCode strin
 
 func scanFiling(row scanner) (domain.Filing, error) {
 	var f domain.Filing
+	var autoHidden int
 	var dataJSON, computedJSON string
 	var presentedAt, receipt sql.NullString
 	err := row.Scan(&f.ID, &f.TaxpayerID, &f.ModelCode, &f.ModelName, &f.Entity,
-		&f.PeriodLabel, &f.PeriodStart, &f.PeriodEnd, &f.DueDate, &f.Status,
+		&f.PeriodLabel, &f.PeriodStart, &f.PeriodEnd, &f.DueDate, &f.Status, &autoHidden,
 		&dataJSON, &computedJSON, &f.Notes, &presentedAt, &receipt, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return f, err
 	}
+	f.AutoHidden = autoHidden != 0
 	f.Data = decodeMap(dataJSON)
 	f.Computed = decodeMap(computedJSON)
 	if presentedAt.Valid {

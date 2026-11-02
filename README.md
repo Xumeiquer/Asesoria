@@ -291,6 +291,8 @@ Cada modelo declara:
 
 Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 aparece en el calendario de 2027. Los sábados y domingos se trasladan al lunes.
 
+Al cambiar el **inicio de actividad** o el perfil fiscal se recalcula el ejercicio actual y el siguiente. El calendario añade los vencimientos que faltan, actualiza sus periodos y fechas de vencimiento y retira de la cola los que dejan de aplicar: se conservan como **No aplica**, con sus datos, en lugar de borrarse. Los expedientes presentados no se modifican. Si un vencimiento retirado automáticamente vuelve a aplicar, se recupera como pendiente; los marcados manualmente como no aplicables no se reabren.
+
 ### Cálculo
 
 Solo 303 y 130 tienen calculadora:

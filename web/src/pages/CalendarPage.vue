@@ -18,10 +18,10 @@ import FilingItem from '@/components/FilingItem.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api, dateLabel } from '@/api'
-import { priorExerciseLabel } from '@/fiscal'
+import { calendarSyncLabel, priorExerciseLabel } from '@/fiscal'
 import { useAppStore } from '@/stores/app'
 import { useToasts } from '@/stores/toasts'
-import type { Filing, FilingStatus } from '@/types'
+import type { CalendarSyncResult, Filing, FilingStatus } from '@/types'
 
 type Range = 'open' | 'overdue' | 'next30' | 'next45' | 'next90' | 'all'
 
@@ -266,14 +266,18 @@ async function load() {
 async function generate() {
   generating.value = true
   try {
-    const data = await api.post<{ inserted: number; taxpayers: number }>('/calendar/generate', {
-      year: year.value,
-      taxpayer_id: store.selectedId || undefined,
-    })
-    if (data.inserted > 0) {
-      toasts.success(`Calendario actualizado: ${data.inserted} nuevos vencimientos`)
+    const data = await api.post<{ inserted: number; taxpayers: number; calendar_sync: CalendarSyncResult }>(
+      '/calendar/generate',
+      {
+        year: year.value,
+        taxpayer_id: store.selectedId || undefined,
+      },
+    )
+    const summary = calendarSyncLabel(data.calendar_sync)
+    if (summary === 'sin cambios') {
+      toasts.push('El calendario ya estaba actualizado')
     } else {
-      toasts.push('No había vencimientos nuevos que añadir')
+      toasts.success(`Calendario actualizado · ${summary}`)
     }
     await load()
   } catch (err) {
