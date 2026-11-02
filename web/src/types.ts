@@ -197,9 +197,19 @@ export interface Dashboard {
   by_entity: Record<string, number>
 }
 
+export interface CalendarSyncResult {
+  inserted: number
+  updated: number
+  hidden: number
+  restored: number
+  kept_presented: number
+}
+
 export interface TaxpayerMutationResult {
   taxpayer: Taxpayer
   generated_filings: number
+  calendar_sync?: CalendarSyncResult
+  calendar_sync_error?: string
   library_warning?: string
 }
 

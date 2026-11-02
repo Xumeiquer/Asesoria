@@ -1,4 +1,4 @@
-import type { Filing } from '@/types'
+import type { CalendarSyncResult, Filing } from '@/types'
 
 export interface FiscalYearEnd {
   month: number
@@ -59,4 +59,17 @@ export function priorExerciseLabel(filing: Filing, yearEnd?: string | null): str
   const exercise = filingExercise(filing, yearEnd)
   const current = exerciseOf(filing.due_date, yearEnd)
   return exercise < current ? `Ejercicio ${exercise}` : ''
+}
+
+/** Resumen legible de una recalculación del calendario. */
+export function calendarSyncLabel(sync: CalendarSyncResult | undefined): string {
+  if (!sync) return 'sin cambios'
+  const parts = [
+    sync.inserted > 0 ? `${sync.inserted} nuevos` : '',
+    sync.updated > 0 ? `${sync.updated} actualizados` : '',
+    sync.hidden > 0 ? `${sync.hidden} retirados` : '',
+    sync.restored > 0 ? `${sync.restored} recuperados` : '',
+    sync.kept_presented > 0 ? `${sync.kept_presented} presentados conservados` : '',
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'sin cambios'
 }

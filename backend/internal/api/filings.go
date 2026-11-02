@@ -91,17 +91,26 @@ func (s *Server) handleGenerateCalendar(w http.ResponseWriter, r *http.Request) 
 		}
 		taxpayers = all
 	}
-	inserted := 0
+	sync := store.FilingSyncResult{}
 	for _, t := range taxpayers {
-		n, err := s.Store.UpsertFilings(r.Context(), s.Calendar.Generate(t, in.Year))
+		result, err := s.syncTaxpayerCalendar(r.Context(), t, []int{in.Year})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		inserted += n
+		sync.Inserted += result.Inserted
+		sync.Updated += result.Updated
+		sync.Hidden += result.Hidden
+		sync.Restored += result.Restored
+		sync.KeptPresented += result.KeptPresented
 	}
-	s.Store.Log(r.Context(), actor(r), "generate", "calendar", in.TaxpayerID, map[string]any{"year": in.Year, "inserted": inserted})
-	writeJSON(w, http.StatusOK, map[string]any{"year": in.Year, "inserted": inserted, "taxpayers": len(taxpayers)})
+	s.Store.Log(r.Context(), actor(r), "generate", "calendar", in.TaxpayerID, map[string]any{
+		"year": in.Year, "inserted": sync.Inserted, "calendar_sync": sync,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"year": in.Year, "inserted": sync.Inserted, "calendar_sync": sync,
+		"taxpayers": len(taxpayers),
+	})
 }
 
 func (s *Server) handleListFilings(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +180,7 @@ func (s *Server) handleUpdateFiling(w http.ResponseWriter, r *http.Request) {
 			f.ReceiptDocumentID = nil
 		}
 		f.Status = *in.Status
+		f.AutoHidden = false
 	}
 	if in.Notes != nil {
 		f.Notes = *in.Notes

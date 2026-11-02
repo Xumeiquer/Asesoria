@@ -59,16 +59,19 @@ type RetaBaseChange struct {
 
 // Filing is one concrete obligation instance for a taxpayer and period.
 type Filing struct {
-	ID                string         `json:"id"`
-	TaxpayerID        string         `json:"taxpayer_id"`
-	ModelCode         string         `json:"model_code"`
-	ModelName         string         `json:"model_name"`
-	Entity            string         `json:"entity"`
-	PeriodLabel       string         `json:"period_label"`
-	PeriodStart       string         `json:"period_start"`
-	PeriodEnd         string         `json:"period_end"`
-	DueDate           string         `json:"due_date"`
-	Status            string         `json:"status"`
+	ID          string `json:"id"`
+	TaxpayerID  string `json:"taxpayer_id"`
+	ModelCode   string `json:"model_code"`
+	ModelName   string `json:"model_name"`
+	Entity      string `json:"entity"`
+	PeriodLabel string `json:"period_label"`
+	PeriodStart string `json:"period_start"`
+	PeriodEnd   string `json:"period_end"`
+	DueDate     string `json:"due_date"`
+	Status      string `json:"status"`
+	// AutoHidden records that the filing was retired from the work queue by a
+	// calendar recalculation, not by a manual decision.
+	AutoHidden        bool           `json:"-"`
 	Data              map[string]any `json:"data"`
 	Computed          map[string]any `json:"computed"`
 	Notes             string         `json:"notes"`

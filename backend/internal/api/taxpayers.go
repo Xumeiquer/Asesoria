@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -97,6 +98,30 @@ func taxpayerProfileChanged(before, after domain.Taxpayer) bool {
 		before.ActivityStart != after.ActivityStart
 }
 
+// syncTaxpayerCalendar regenerates the requested due-date years and reconciles
+// them with the stored calendar. The current profile is used, so callers keep
+// this scope to the current and next exercise unless the user explicitly asks
+// to regenerate another year.
+func (s *Server) syncTaxpayerCalendar(ctx context.Context, t domain.Taxpayer, years []int) (store.FilingSyncResult, error) {
+	unique := make(map[int]struct{}, len(years))
+	for _, year := range years {
+		if year > 0 {
+			unique[year] = struct{}{}
+		}
+	}
+	sorted := make([]int, 0, len(unique))
+	for year := range unique {
+		sorted = append(sorted, year)
+	}
+	sort.Ints(sorted)
+
+	generated := make([]domain.Filing, 0, len(sorted)*20)
+	for _, year := range sorted {
+		generated = append(generated, s.Calendar.Generate(t, year)...)
+	}
+	return s.Store.SyncFilings(ctx, t.ID, generated, sorted)
+}
+
 func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	var in taxpayerInput
 	if err := decodeJSON(r, &in); err != nil {
@@ -118,19 +143,18 @@ func (s *Server) handleCreateTaxpayer(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.AddRetaBaseChange(r.Context(), t); err != nil {
 		s.Store.Log(r.Context(), actor(r), "reta_history_warning", "taxpayer", t.ID, map[string]any{"error": err.Error()})
 	}
-	generated := 0
-	for _, year := range []int{currentYear(), currentYear() + 1} {
-		filings := s.Calendar.Generate(t, year)
-		n, err := s.Store.UpsertFilings(r.Context(), filings)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "contribuyente creado, pero falló el calendario: "+err.Error())
-			return
-		}
-		generated += n
+	calendarSync, err := s.syncTaxpayerCalendar(r.Context(), t, []int{currentYear(), currentYear() + 1})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "contribuyente creado, pero falló el calendario: "+err.Error())
+		return
 	}
 	libraryWarning := s.ensureTaxpayerLibrary(r.Context(), t)
-	s.Store.Log(r.Context(), actor(r), "create", "taxpayer", t.ID, map[string]any{"nif": t.NIF, "generated_filings": generated})
-	resp := map[string]any{"taxpayer": t, "generated_filings": generated}
+	s.Store.Log(r.Context(), actor(r), "create", "taxpayer", t.ID, map[string]any{
+		"nif": t.NIF, "generated_filings": calendarSync.Inserted, "calendar_sync": calendarSync,
+	})
+	resp := map[string]any{
+		"taxpayer": t, "generated_filings": calendarSync.Inserted, "calendar_sync": calendarSync,
+	}
 	if libraryWarning != "" {
 		resp["library_warning"] = libraryWarning
 	}
@@ -168,22 +192,29 @@ func (s *Server) handleUpdateTaxpayer(w http.ResponseWriter, r *http.Request) {
 			s.Store.Log(r.Context(), actor(r), "reta_history_warning", "taxpayer", id, map[string]any{"error": err.Error()})
 		}
 	}
-	generated := 0
+	calendarSync := store.FilingSyncResult{}
+	calendarError := ""
 	if taxpayerProfileChanged(existing, updated) {
-		for _, year := range []int{currentYear(), currentYear() + 1} {
-			n, err := s.Store.UpsertFilings(r.Context(), s.Calendar.Generate(updated, year))
-			if err != nil {
-				s.Store.Log(r.Context(), actor(r), "calendar_sync_warning", "taxpayer", id, map[string]any{"error": err.Error()})
-				break
-			}
-			generated += n
+		var err error
+		calendarSync, err = s.syncTaxpayerCalendar(r.Context(), updated, []int{currentYear(), currentYear() + 1})
+		if err != nil {
+			calendarError = err.Error()
+			s.Store.Log(r.Context(), actor(r), "calendar_sync_warning", "taxpayer", id, map[string]any{"error": err.Error()})
 		}
 	}
 	if warning := s.ensureTaxpayerLibrary(r.Context(), updated); warning != "" {
 		s.Store.Log(r.Context(), actor(r), "library_tree_warning", "taxpayer", id, map[string]any{"error": warning})
 	}
-	s.Store.Log(r.Context(), actor(r), "update", "taxpayer", id, map[string]any{"generated_filings": generated})
-	writeJSON(w, http.StatusOK, map[string]any{"taxpayer": updated, "generated_filings": generated})
+	s.Store.Log(r.Context(), actor(r), "update", "taxpayer", id, map[string]any{
+		"generated_filings": calendarSync.Inserted, "calendar_sync": calendarSync,
+	})
+	resp := map[string]any{
+		"taxpayer": updated, "generated_filings": calendarSync.Inserted, "calendar_sync": calendarSync,
+	}
+	if calendarError != "" {
+		resp["calendar_sync_error"] = calendarError
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleDeleteTaxpayer(w http.ResponseWriter, r *http.Request) {
