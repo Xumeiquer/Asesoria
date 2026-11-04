@@ -101,6 +101,16 @@ En **Ajustes → Biblioteca documental** puedes elegir una carpeta del equipo. L
       Contratos/
       Seguros/
       Banco/
+      Libros registro/
+      Certificados/
+      Escrituras/
+      Cuentas anuales/
+      Inventarios y valoraciones/
+      Ajustes fiscales/
+      Datos fiscales/
+      Seguridad Social/
+      Societarios/
+      Identificación/
       Otros/
     2T/ … 4T/
     Anual/
@@ -108,6 +118,8 @@ En **Ajustes → Biblioteca documental** puedes elegir una carpeta del equipo. L
   2026/ … 2027/
   Sin clasificar/
 ```
+
+Cada documento solicitado por un modelo se asocia a una de estas carpetas. En **Documentos** puedes elegir el expediente y el documento concreto del modelo; la subida guarda esa relación en los metadatos y archiva el fichero en la carpeta correspondiente. La misma asociación se muestra en las checklists de **Modelos** y del expediente.
 
 Se generan los años anterior, actual y siguiente. Al guardar la carpeta, al crear o editar un contribuyente y al escanear, el árbol se vuelve a comprobar; es idempotente y no borra nada. Si un contribuyente se renombra, se reutiliza la carpeta existente que termina en `(NIF)` para no separar sus documentos. Los documentos que no se pueden asignar a ningún contribuyente se archivan en `<raíz>/Sin clasificar/<año>/<periodo>/<tipo>` hasta que se revisan.
 

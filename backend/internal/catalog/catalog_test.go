@@ -38,6 +38,26 @@ func TestModelsHaveDescriptionAndOfficialURL(t *testing.T) {
 	}
 }
 
+func TestEveryCatalogueDocumentHasAKindAndFolder(t *testing.T) {
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, m := range c.All() {
+		if len(m.DocumentRequirements) != len(m.Documents) {
+			t.Errorf("model %s has %d documents and %d requirements", m.Code, len(m.Documents), len(m.DocumentRequirements))
+		}
+		for _, req := range m.DocumentRequirements {
+			if req.Kind == "" || req.Kind == "other" {
+				t.Errorf("model %s document %q has no specific kind", m.Code, req.Label)
+			}
+			if req.Folder == "" || req.Folder == "Otros" {
+				t.Errorf("model %s document %q has no specific folder", m.Code, req.Label)
+			}
+		}
+	}
+}
+
 func TestDocumentationChecklists(t *testing.T) {
 	c, err := Load()
 	if err != nil {

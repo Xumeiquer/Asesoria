@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Xumeiquer/asesoria/internal/docmeta"
 	"github.com/Xumeiquer/asesoria/internal/domain"
 	"github.com/Xumeiquer/asesoria/internal/store"
 )
@@ -306,15 +307,17 @@ func mimeFor(path string) string {
 }
 
 type UploadInput struct {
-	Taxpayer        domain.Taxpayer
-	FilingID        *string
-	Kind            string
-	Filename        string
-	MIME            string
-	DocDate         string
-	AmountCents     *int64
-	CounterpartyNIF string
-	Reader          io.Reader
+	Taxpayer            domain.Taxpayer
+	FilingID            *string
+	Kind                string
+	ModelCode           string
+	DocumentRequirement string
+	Filename            string
+	MIME                string
+	DocDate             string
+	AmountCents         *int64
+	CounterpartyNIF     string
+	Reader              io.Reader
 }
 
 // Ingest stores an uploaded file inside the configured library tree, extracts
@@ -370,6 +373,13 @@ func (s *Service) Ingest(ctx context.Context, in UploadInput) (domain.Document, 
 	}
 	year, period := PeriodFromDate(date)
 	kind := strings.TrimSpace(in.Kind)
+	requirement := strings.TrimSpace(in.DocumentRequirement)
+	if requirement != "" && (kind == "" || kind == "other") {
+		if mapped := docmeta.KindFor(requirement); mapped != "" {
+			kind = mapped
+			inferred = append(inferred, "tipo")
+		}
+	}
 	if kind == "" || kind == "other" {
 		if fromName := kindFromFilename([]string{in.Filename}); fromName != "" {
 			kind = fromName
@@ -443,6 +453,13 @@ func (s *Service) Ingest(ctx context.Context, in UploadInput) (domain.Document, 
 	}
 	if doc.MIME == "" {
 		doc.MIME = mimeFor(absDest)
+	}
+	if code := strings.TrimSpace(in.ModelCode); code != "" {
+		doc.Metadata["model_code"] = code
+	}
+	if requirement != "" {
+		doc.Metadata["document_requirement"] = requirement
+		doc.Metadata["document_folder"] = docmeta.Folder(kind)
 	}
 	if err := s.Store.CreateDocument(ctx, &doc); err != nil {
 		_ = os.Remove(absDest)

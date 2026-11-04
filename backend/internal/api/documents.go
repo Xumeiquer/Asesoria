@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Xumeiquer/asesoria/internal/calc"
+	"github.com/Xumeiquer/asesoria/internal/docmeta"
 	"github.com/Xumeiquer/asesoria/internal/domain"
 	"github.com/Xumeiquer/asesoria/internal/library"
 	"github.com/Xumeiquer/asesoria/internal/storage"
@@ -53,6 +54,11 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 		mime = "application/octet-stream"
 	}
 	kind := strings.TrimSpace(r.FormValue("kind"))
+	modelCode := strings.TrimSpace(r.FormValue("model_code"))
+	requirement := strings.TrimSpace(r.FormValue("document_requirement"))
+	if (kind == "" || kind == "other") && requirement != "" {
+		kind = docmeta.KindFor(requirement)
+	}
 	if kind == "" {
 		kind = "other"
 	}
@@ -86,15 +92,17 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 		}
 		if root != "" {
 			doc, err := s.Library.Ingest(r.Context(), library.UploadInput{
-				Taxpayer:        *taxpayer,
-				FilingID:        optionalString(r.FormValue("filing_id")),
-				Kind:            kind,
-				Filename:        filename,
-				MIME:            mime,
-				DocDate:         docDate,
-				AmountCents:     amount,
-				CounterpartyNIF: counterparty,
-				Reader:          file,
+				Taxpayer:            *taxpayer,
+				FilingID:            optionalString(r.FormValue("filing_id")),
+				Kind:                kind,
+				ModelCode:           modelCode,
+				DocumentRequirement: requirement,
+				Filename:            filename,
+				MIME:                mime,
+				DocDate:             docDate,
+				AmountCents:         amount,
+				CounterpartyNIF:     counterparty,
+				Reader:              file,
 			})
 			if errors.Is(err, library.ErrDuplicate) {
 				writeError(w, http.StatusConflict, "este documento ya está archivado en la biblioteca")
@@ -115,6 +123,14 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "no se pudo guardar el fichero: "+err.Error())
 		return
 	}
+	metadata := map[string]any{"original_name": header.Filename}
+	if modelCode != "" {
+		metadata["model_code"] = modelCode
+	}
+	if requirement != "" {
+		metadata["document_requirement"] = requirement
+		metadata["document_folder"] = docmeta.Folder(kind)
+	}
 	doc := domain.Document{
 		TaxpayerID:      optionalString(taxpayerID),
 		FilingID:        optionalString(r.FormValue("filing_id")),
@@ -129,7 +145,7 @@ func (s *Server) handleUploadDocument(w http.ResponseWriter, r *http.Request) {
 		CounterpartyNIF: counterparty,
 		OCRStatus:       library.OCRNone,
 		ReviewStatus:    "ok",
-		Metadata:        map[string]any{"original_name": header.Filename},
+		Metadata:        metadata,
 	}
 	if err := s.Store.CreateDocument(r.Context(), &doc); err != nil {
 		_ = s.Files.Remove(relPath)

@@ -164,6 +164,18 @@ export interface Schedule {
   dues?: Array<{ month: number; day: number; period_start: string; period_end: string; period_year_offset: number }>
 }
 
+export interface DocumentKind {
+  id: string
+  label: string
+  folder: string
+}
+
+export interface DocumentRequirement {
+  label: string
+  kind: string
+  folder: string
+}
+
 export interface Model {
   code: string
   name: string
@@ -178,6 +190,7 @@ export interface Model {
   applies: Record<string, unknown>
   schedule?: Schedule
   documents: string[]
+  document_requirements: DocumentRequirement[]
   notes: string
   applicable: boolean
   calculator: boolean
@@ -220,6 +233,7 @@ export interface AppMeta {
   data_dir: string
   paired_tokens: number
   calculators: string[]
+  document_kinds: DocumentKind[]
   dev: boolean
 }
 

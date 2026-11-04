@@ -232,16 +232,7 @@ async function uploadReceipt() {
 }
 
 function kindLabel(kind: string): string {
-  const map: Record<string, string> = {
-    factura_emitida: 'Factura emitida',
-    factura_recibida: 'Factura recibida',
-    nomina: 'Nómina',
-    recibo: 'Recibo',
-    justificante: 'Justificante',
-    modelo: 'Modelo presentado',
-    other: 'Otro',
-  }
-  return map[kind] ?? kind
+  return store.meta?.document_kinds.find((item) => item.id === kind)?.label ?? kind
 }
 
 watch(() => props.id, load)
@@ -498,23 +489,29 @@ onBeforeUnmount(() => {
           </p>
         </div>
 
-        <div v-if="model?.documents.length" class="card card-pad">
+        <div v-if="model?.document_requirements.length" class="card card-pad">
           <div class="flex items-center justify-between">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Checklist</h2>
             <span class="text-xs text-slate-400">
-              {{ model.documents.filter((d) => checklist[d]).length }}/{{ model.documents.length }}
+              {{ model.document_requirements.filter((d) => checklist[d.label]).length }}/{{ model.document_requirements.length }}
             </span>
           </div>
           <ul class="mt-3 space-y-2">
-            <li v-for="item in model.documents" :key="item">
+            <li v-for="doc in model.document_requirements" :key="doc.label">
               <label class="flex cursor-pointer items-start gap-2.5 rounded-lg p-1.5 text-sm hover:bg-slate-50">
                 <input
                   type="checkbox"
                   class="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  :checked="Boolean(checklist[item])"
-                  @change="toggleCheck(item)"
+                  :checked="Boolean(checklist[doc.label])"
+                  @change="toggleCheck(doc.label)"
                 />
-                <span :class="checklist[item] ? 'text-slate-400 line-through' : 'text-slate-600'">{{ item }}</span>
+                <span
+                  class="min-w-0 flex-1"
+                  :class="checklist[doc.label] ? 'text-slate-400 line-through' : 'text-slate-600'"
+                >
+                  {{ doc.label }}
+                </span>
+                <span class="chip shrink-0 bg-slate-100 text-slate-500">{{ doc.folder }}</span>
               </label>
             </li>
           </ul>
@@ -583,11 +580,16 @@ onBeforeUnmount(() => {
         <div class="card card-pad">
           <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Documentación necesaria</h2>
           <ul class="mt-3 space-y-2">
-            <li v-for="item in model?.documents ?? []" :key="item" class="flex items-start gap-2 text-sm text-slate-600">
+            <li
+              v-for="doc in model?.document_requirements ?? []"
+              :key="doc.label"
+              class="flex items-start gap-2 text-sm text-slate-600"
+            >
               <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              {{ item }}
+              <span class="min-w-0 flex-1">{{ doc.label }}</span>
+              <span class="chip shrink-0 bg-slate-100 text-slate-500">{{ doc.folder }}</span>
             </li>
-            <li v-if="!model?.documents.length" class="text-sm text-slate-400">Sin checklist específica.</li>
+            <li v-if="!model?.document_requirements.length" class="text-sm text-slate-400">Sin checklist específica.</li>
           </ul>
         </div>
         <div v-if="model?.notes" class="rounded-2xl border border-amber-200 bg-amber-50 p-4">

@@ -24,6 +24,7 @@ import (
 
 	"github.com/Xumeiquer/asesoria/internal/calendar"
 	"github.com/Xumeiquer/asesoria/internal/catalog"
+	"github.com/Xumeiquer/asesoria/internal/docmeta"
 	"github.com/Xumeiquer/asesoria/internal/library"
 	"github.com/Xumeiquer/asesoria/internal/storage"
 	"github.com/Xumeiquer/asesoria/internal/store"
@@ -474,6 +475,7 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 		"data_dir":           s.DataDir,
 		"paired_tokens":      len(tokens),
 		"calculators":        calculators,
+		"document_kinds":     docmeta.All(),
 		"dev":                s.Dev,
 	})
 }
