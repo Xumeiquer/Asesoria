@@ -63,12 +63,19 @@ type Schedule struct {
 	// DueDays overrides DueDay for each entry in DueMonths. It is used when
 	// the last quarter has a different deadline (for example, 30 January).
 	DueDays []int `yaml:"due_days,omitempty" json:"due_days,omitempty"`
-	// SIIMonthly switches a quarterly schedule to monthly when the taxpayer
-	// keeps VAT ledgers through the AEAT SII.
-	SIIMonthly bool `yaml:"sii_monthly,omitempty" json:"sii_monthly,omitempty"`
+	// MonthlyWhen switches a quarterly schedule to monthly when any of the
+	// listed profile conditions is met. Supported values are "sii",
+	// "monthly_vat", "monthly_withholdings" and
+	// "intracommunity_over_50k".
+	MonthlyWhen []string `yaml:"monthly_when,omitempty" json:"monthly_when,omitempty"`
 	// MonthlyDueDays overrides DueDay for each due month (January to
-	// December) when SIIMonthly is used. 0 means the last day of the month.
+	// December) when the schedule expands monthly. 0 means the last day of
+	// the month.
 	MonthlyDueDays []int `yaml:"monthly_due_days,omitempty" json:"monthly_due_days,omitempty"`
+	// MonthlyDueMonths maps each period month (January to December) to its
+	// due month. It is used by conditional monthly schedules with exceptions,
+	// such as the July period of model 349.
+	MonthlyDueMonths []int `yaml:"monthly_due_months,omitempty" json:"monthly_due_months,omitempty"`
 	// PeriodOffsetMonths is used by monthly schedules (default -1).
 	PeriodOffsetMonths *int `yaml:"period_offset_months,omitempty" json:"period_offset_months,omitempty"`
 	// PeriodYearOffset is used by annual schedules (default -1).
@@ -123,8 +130,30 @@ func Load() (*Catalog, error) {
 			if len(s.MonthlyDueDays) > 0 && len(s.MonthlyDueDays) != 12 {
 				return nil, fmt.Errorf("model %s has %d monthly_due_days, want 12", f.Models[i].Code, len(s.MonthlyDueDays))
 			}
-			if s.SIIMonthly && s.Type != "quarterly" {
-				return nil, fmt.Errorf("model %s uses sii_monthly with a %s schedule", f.Models[i].Code, s.Type)
+			if len(s.MonthlyDueMonths) > 0 {
+				if len(s.MonthlyDueMonths) != 12 {
+					return nil, fmt.Errorf("model %s has %d monthly_due_months, want 12", f.Models[i].Code, len(s.MonthlyDueMonths))
+				}
+				for _, month := range s.MonthlyDueMonths {
+					if month < 1 || month > 12 {
+						return nil, fmt.Errorf("model %s has an invalid monthly_due_months value %d", f.Models[i].Code, month)
+					}
+				}
+				if len(s.MonthlyWhen) == 0 {
+					return nil, fmt.Errorf("model %s uses monthly_due_months without monthly_when", f.Models[i].Code)
+				}
+			}
+			if len(s.MonthlyWhen) > 0 {
+				if s.Type != "quarterly" {
+					return nil, fmt.Errorf("model %s uses monthly_when with a %s schedule", f.Models[i].Code, s.Type)
+				}
+				for _, when := range s.MonthlyWhen {
+					switch when {
+					case "sii", "monthly_vat", "monthly_withholdings", "intracommunity_over_50k":
+					default:
+						return nil, fmt.Errorf("model %s has an unknown monthly_when value %q", f.Models[i].Code, when)
+					}
+				}
 			}
 		}
 		f.Models[i].DocumentRequirements = make([]docmeta.Requirement, 0, len(f.Models[i].Documents))
@@ -169,8 +198,18 @@ func (m Model) AppliesTo(t domain.Taxpayer) bool {
 	if len(a.LegalForms) > 0 && !contains(a.LegalForms, t.LegalForm) {
 		return false
 	}
-	if len(a.VATRegimes) > 0 && !contains(a.VATRegimes, t.VATRegime) {
-		return false
+	if len(a.VATRegimes) > 0 {
+		matches := contains(a.VATRegimes, t.VATRegime)
+		// A taxpayer can combine a special regime (recargo de
+		// equivalencia, simplified, exemption...) with an activity under
+		// the general regime. In that case the general-regime models also
+		// apply.
+		if !matches && t.HasGeneralVATActivity && contains(a.VATRegimes, "general") {
+			matches = true
+		}
+		if !matches {
+			return false
+		}
 	}
 	if len(a.IRPFMethods) > 0 && !contains(a.IRPFMethods, t.IRPFMethod) {
 		return false

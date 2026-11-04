@@ -93,6 +93,72 @@ func TestSIIMonthly303(t *testing.T) {
 	if got := pJan.due.Format("2006-01-02"); got != "2025-02-28" {
 		t.Errorf("303 January 2025 due = %s, want 2025-02-28", got)
 	}
+
+	monthlyVAT := g.periodsFor(m303, domain.Taxpayer{VATRegime: "general", MonthlyVAT: true}, 2025)
+	if len(monthlyVAT) != 12 {
+		t.Fatalf("303 monthly-VAT periods = %d, want 12", len(monthlyVAT))
+	}
+}
+
+func TestMonthlyWithholdings111And115(t *testing.T) {
+	c := loadCatalog(t)
+	g := New(c)
+	tp := domain.Taxpayer{
+		VATRegime: "general", EconomicActivity: true,
+		WithholdsProfessionalIncome: true, HasRentals: true,
+		MonthlyWithholdings: true,
+	}
+	for _, code := range []string{"111", "115"} {
+		m := modelByCode(t, c, code)
+		periods := g.periodsFor(m, tp, 2025)
+		if len(periods) != 12 {
+			t.Errorf("%s monthly periods = %d, want 12", code, len(periods))
+		}
+		p := periodByLabel(t, periods, "Diciembre 2024")
+		if got := p.due.Format("2006-01-02"); got != "2025-01-20" {
+			t.Errorf("%s December 2024 due = %s, want 2025-01-20", code, got)
+		}
+	}
+
+	tp.MonthlyWithholdings = false
+	for _, code := range []string{"111", "115"} {
+		m := modelByCode(t, c, code)
+		if periods := g.periodsFor(m, tp, 2025); len(periods) != 4 {
+			t.Errorf("%s quarterly periods = %d, want 4", code, len(periods))
+		}
+	}
+}
+
+func TestIntracommunityMonthly349(t *testing.T) {
+	c := loadCatalog(t)
+	g := New(c)
+	m349 := modelByCode(t, c, "349")
+	tp := domain.Taxpayer{
+		VATRegime: "general", EconomicActivity: true,
+		HasIntracommunityOperations: true, IntracommunityOver50K: true,
+	}
+
+	periods := g.periodsFor(m349, tp, 2027)
+	if len(periods) != 12 {
+		t.Fatalf("349 monthly periods = %d, want 12", len(periods))
+	}
+	pJul := periodByLabel(t, periods, "Julio 2027")
+	if got := pJul.due.Format("2006-01-02"); got != "2027-09-20" {
+		t.Errorf("349 July 2027 due = %s, want 2027-09-20", got)
+	}
+	pAug := periodByLabel(t, periods, "Agosto 2027")
+	if got := pAug.due.Format("2006-01-02"); got != "2027-09-20" {
+		t.Errorf("349 August 2027 due = %s, want 2027-09-20", got)
+	}
+	pDec := periodByLabel(t, periods, "Diciembre 2026")
+	if got := pDec.due.Format("2006-01-02"); got != "2027-02-01" {
+		t.Errorf("349 December 2026 due = %s, want 2027-02-01 (30 January moved from Saturday)", got)
+	}
+
+	tp.IntracommunityOver50K = false
+	if quarterly := g.periodsFor(m349, tp, 2027); len(quarterly) != 4 {
+		t.Errorf("349 quarterly periods = %d, want 4", len(quarterly))
+	}
 }
 
 func countModel(filings []domain.Filing, code string) int {
@@ -137,13 +203,29 @@ func TestGenerateAppliesTaxProfile(t *testing.T) {
 	}
 
 	base.UsesSII = false
+	base.MonthlyVAT = true
+	monthlyVAT := g.Generate(base, 2026)
+	if got := countModel(monthlyVAT, "303"); got != 12 {
+		t.Errorf("monthly VAT 303 filings = %d, want 12", got)
+	}
+	if got := countModel(monthlyVAT, "390"); got != 1 {
+		t.Errorf("monthly VAT 390 filings = %d, want 1", got)
+	}
+
+	base.MonthlyVAT = false
 	base.HasIntracommunityOperations = true
 	intra := g.Generate(base, 2026)
 	if got := countModel(intra, "349"); got != 4 {
 		t.Errorf("intracommunity 349 filings = %d, want 4", got)
 	}
+	base.IntracommunityOver50K = true
+	intraMonthly := g.Generate(base, 2026)
+	if got := countModel(intraMonthly, "349"); got != 12 {
+		t.Errorf("monthly intracommunity 349 filings = %d, want 12", got)
+	}
 
 	base.HasIntracommunityOperations = false
+	base.IntracommunityOver50K = false
 	base.WithholdsProfessionalIncome = true
 	withholding := g.Generate(base, 2026)
 	if got := countModel(withholding, "111"); got != 4 {
@@ -152,8 +234,22 @@ func TestGenerateAppliesTaxProfile(t *testing.T) {
 	if got := countModel(withholding, "190"); got != 1 {
 		t.Errorf("professional withholding 190 filings = %d, want 1", got)
 	}
+	base.HasRentals = true
+	base.MonthlyWithholdings = true
+	monthlyWithholdings := g.Generate(base, 2026)
+	if got := countModel(monthlyWithholdings, "111"); got != 12 {
+		t.Errorf("monthly withholding 111 filings = %d, want 12", got)
+	}
+	if got := countModel(monthlyWithholdings, "115"); got != 12 {
+		t.Errorf("monthly withholding 115 filings = %d, want 12", got)
+	}
+	if got := countModel(monthlyWithholdings, "190"); got != 1 {
+		t.Errorf("monthly withholding 190 filings = %d, want 1", got)
+	}
 
 	base.WithholdsProfessionalIncome = false
+	base.HasRentals = false
+	base.MonthlyWithholdings = false
 	base.ExemptFromIRPFFractionalPayment = true
 	exempt := g.Generate(base, 2026)
 	if got := countModel(exempt, "130"); got != 0 {
@@ -169,5 +265,13 @@ func TestGenerateAppliesTaxProfile(t *testing.T) {
 	}
 	if got := countModel(recargoFilings, "390"); got != 0 {
 		t.Errorf("recargo 390 filings = %d, want 0", got)
+	}
+	recargo.HasGeneralVATActivity = true
+	combined := g.Generate(recargo, 2026)
+	if got := countModel(combined, "303"); got != 4 {
+		t.Errorf("recargo with general activity 303 filings = %d, want 4", got)
+	}
+	if got := countModel(combined, "390"); got != 1 {
+		t.Errorf("recargo with general activity 390 filings = %d, want 1", got)
 	}
 }

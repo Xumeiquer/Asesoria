@@ -31,6 +31,10 @@ type taxpayerInput struct {
 	WithholdsProfessionalIncome     bool     `json:"withholds_professional_income"`
 	ExemptFromIRPFFractionalPayment bool     `json:"exempt_from_irpf_fractional_payment"`
 	UsesSII                         bool     `json:"uses_sii"`
+	HasGeneralVATActivity           bool     `json:"has_general_vat_activity"`
+	MonthlyVAT                      bool     `json:"monthly_vat"`
+	MonthlyWithholdings             bool     `json:"monthly_withholdings"`
+	IntracommunityOver50K           bool     `json:"intracommunity_over_50k"`
 	CNAEs                           []string `json:"cnaes"`
 	CNAE                            string   `json:"cnae"` // legacy single-code clients
 	FiscalYearEnd                   string   `json:"fiscal_year_end"`
@@ -102,6 +106,10 @@ func taxpayerProfileChanged(before, after domain.Taxpayer) bool {
 		before.WithholdsProfessionalIncome != after.WithholdsProfessionalIncome ||
 		before.ExemptFromIRPFFractionalPayment != after.ExemptFromIRPFFractionalPayment ||
 		before.UsesSII != after.UsesSII ||
+		before.HasGeneralVATActivity != after.HasGeneralVATActivity ||
+		before.MonthlyVAT != after.MonthlyVAT ||
+		before.MonthlyWithholdings != after.MonthlyWithholdings ||
+		before.IntracommunityOver50K != after.IntracommunityOver50K ||
 		before.EconomicActivity != after.EconomicActivity ||
 		before.FiscalYearEnd != after.FiscalYearEnd ||
 		before.ActivityStart != after.ActivityStart
@@ -270,6 +278,10 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 		WithholdsProfessionalIncome:     in.WithholdsProfessionalIncome,
 		ExemptFromIRPFFractionalPayment: in.ExemptFromIRPFFractionalPayment,
 		UsesSII:                         in.UsesSII,
+		HasGeneralVATActivity:           in.HasGeneralVATActivity,
+		MonthlyVAT:                      in.MonthlyVAT,
+		MonthlyWithholdings:             in.MonthlyWithholdings,
+		IntracommunityOver50K:           in.IntracommunityOver50K,
 
 		CNAEs:         normalizeCNAEs(append(in.CNAEs, in.CNAE)),
 		FiscalYearEnd: strings.TrimSpace(in.FiscalYearEnd),

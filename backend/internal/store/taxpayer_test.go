@@ -15,6 +15,10 @@ func TestTaxpayerProfileFlagsRoundTrip(t *testing.T) {
 		WithholdsProfessionalIncome:     true,
 		ExemptFromIRPFFractionalPayment: true,
 		UsesSII:                         true,
+		HasGeneralVATActivity:           true,
+		MonthlyVAT:                      true,
+		MonthlyWithholdings:             true,
+		IntracommunityOver50K:           true,
 	}
 	if err := st.CreateTaxpayer(ctx, &taxpayer); err != nil {
 		t.Fatal(err)
@@ -25,12 +29,18 @@ func TestTaxpayerProfileFlagsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !got.HasIntracommunityOperations || !got.WithholdsProfessionalIncome ||
-		!got.ExemptFromIRPFFractionalPayment || !got.UsesSII {
+		!got.ExemptFromIRPFFractionalPayment || !got.UsesSII ||
+		!got.HasGeneralVATActivity || !got.MonthlyVAT ||
+		!got.MonthlyWithholdings || !got.IntracommunityOver50K {
 		t.Fatalf("profile flags were not persisted: %+v", got)
 	}
 
 	got.UsesSII = false
 	got.WithholdsProfessionalIncome = false
+	got.HasGeneralVATActivity = false
+	got.MonthlyVAT = false
+	got.MonthlyWithholdings = false
+	got.IntracommunityOver50K = false
 	if err := st.UpdateTaxpayer(ctx, &got); err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +48,9 @@ func TestTaxpayerProfileFlagsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.UsesSII || updated.WithholdsProfessionalIncome {
+	if updated.UsesSII || updated.WithholdsProfessionalIncome ||
+		updated.HasGeneralVATActivity || updated.MonthlyVAT ||
+		updated.MonthlyWithholdings || updated.IntracommunityOver50K {
 		t.Fatalf("profile flags were not updated: %+v", updated)
 	}
 }

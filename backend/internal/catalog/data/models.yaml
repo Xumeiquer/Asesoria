@@ -41,7 +41,7 @@ models:
     name: "Autoliquidación de IVA"
     entity: AEAT
     category: "IVA"
-    periodicity: "Trimestral"
+    periodicity: "Trimestral / mensual"
     description: "Sirve para declarar y pagar el IVA de cada trimestre o mes: el IVA cobrado en las facturas menos el IVA soportado en gastos e inversiones."
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G414.shtml"
     auto: true
@@ -52,14 +52,14 @@ models:
       type: quarterly
       due_months: [1, 4, 7, 10]
       due_days: [30, 20, 20, 20]
-      sii_monthly: true
+      monthly_when: ["sii", "monthly_vat"]
       monthly_due_days: [30, 0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
     documents:
       - "Libro registro de facturas emitidas y recibidas"
       - "Facturas y justificantes de gastos deducibles"
       - "Documentos de importación, exportación y operaciones intracomunitarias"
       - "Autoliquidaciones de IVA de otros Estados miembros, si aplica"
-    notes: "Trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Mensual para grandes empresas, grupos de IVA, REDEME y SII: 1-30 del mes siguiente, salvo el período de enero, que vence el último día de febrero. En recargo de equivalencia o actividad exenta no hay 303 por esa actividad; si compaginas otra actividad en régimen general, sí. Para operaciones no periódicas puede ser necesario el 309."
+    notes: "Trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Mensual para grandes empresas, grupos de IVA, REDEME y SII: 1-30 del mes siguiente, salvo el período de enero, que vence el último día de febrero. En recargo de equivalencia o actividad exenta no hay 303 por esa actividad; si compaginas otra actividad en régimen general, marca \"también régimen general\" en el perfil y el 303 sí aplicará. Si eres gran empresa, grupo de IVA o REDEME, marca \"303 mensual\" en el perfil. Para operaciones no periódicas puede ser necesario el 309."
 
   - code: "309"
     name: "Autoliquidación no periódica de IVA"
@@ -102,7 +102,7 @@ models:
     documents:
       - "Modelos 303 del ejercicio"
       - "Libro registro de facturas emitidas y recibidas"
-    notes: "Plazo: 1-30 de enero. Exonerados: quienes realizan exclusivamente régimen simplificado, arrendamiento de inmuebles urbanos o llevan los libros registro en el SII. Si compaginas regímenes, revisa el supuesto."
+    notes: "Plazo: 1-30 de enero. Exonerados: quienes realizan exclusivamente régimen simplificado, arrendamiento de inmuebles urbanos o llevan los libros registro en el SII. Si compaginas un régimen especial con una actividad en régimen general, marca \"también régimen general\" en el perfil: el 390 sí aplica por esa actividad."
 
   - code: "130"
     name: "Pago fraccionado de IRPF (estimación directa)"
@@ -156,7 +156,7 @@ models:
     name: "Retenciones e ingresos a cuenta del trabajo y profesionales"
     entity: AEAT
     category: "Retenciones"
-    periodicity: "Trimestral"
+    periodicity: "Trimestral / mensual"
     description: "Sirve para ingresar en Hacienda las retenciones de IRPF que se descuentan en nóminas y en facturas de profesionales."
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH01.shtml"
     auto: true
@@ -166,11 +166,12 @@ models:
       type: quarterly
       due_months: [1, 4, 7, 10]
       due_day: 20
+      monthly_when: ["monthly_withholdings"]
     documents:
       - "Nóminas y relación de perceptores"
       - "Facturas de profesionales con retención"
       - "Justificantes de las retenciones practicadas"
-    notes: "Incluye retenciones por nóminas y por facturas de profesionales, aunque no haya empleados. No se presenta un trimestre sin rentas sujetas a retención. Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€."
+    notes: "Incluye retenciones por nóminas y por facturas de profesionales, aunque no haya empleados. No se presenta un trimestre sin rentas sujetas a retención. Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€: marca \"111/115 mensual\" en el perfil."
 
   - code: "190"
     name: "Resumen anual de retenciones del trabajo y profesionales"
@@ -197,7 +198,7 @@ models:
     name: "Retenciones por arrendamiento de inmuebles"
     entity: AEAT
     category: "Retenciones"
-    periodicity: "Trimestral"
+    periodicity: "Trimestral / mensual"
     description: "Sirve para ingresar las retenciones de IRPF que se descuentan al pagar el alquiler de un local o una vivienda."
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH02.shtml"
     auto: true
@@ -207,11 +208,12 @@ models:
       type: quarterly
       due_months: [1, 4, 7, 10]
       due_day: 20
+      monthly_when: ["monthly_withholdings"]
     documents:
       - "Contratos de arrendamiento"
       - "Facturas o recibos de alquiler"
       - "Justificantes de las retenciones practicadas"
-    notes: "Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€."
+    notes: "Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€: marca \"111/115 mensual\" en el perfil."
 
   - code: "180"
     name: "Resumen anual de retenciones por arrendamiento"
@@ -305,7 +307,7 @@ models:
     name: "Declaración recapitulativa de operaciones intracomunitarias"
     entity: AEAT
     category: "Informativas"
-    periodicity: "Trimestral"
+    periodicity: "Trimestral / mensual"
     description: "Sirve para informar a Hacienda de las entregas y adquisiciones de bienes o servicios con otros países de la UE. Se usa para controlar el IVA intracomunitario."
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI28.shtml"
     auto: true
@@ -316,13 +318,16 @@ models:
       type: quarterly
       due_months: [1, 4, 7, 10]
       due_days: [30, 20, 20, 20]
+      monthly_when: ["intracommunity_over_50k"]
+      monthly_due_months: [2, 3, 4, 5, 6, 7, 9, 9, 10, 11, 12, 1]
+      monthly_due_days: [30, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]
     documents:
       - "Facturas intracomunitarias"
       - "NIF-IVA de los clientes/proveedores"
       - "Libro registro de facturas emitidas y recibidas"
       - "Libro registro de operaciones intracomunitarias"
       - "Justificantes de transporte o entrega, si aplica"
-    notes: "Solo se presenta si hay entregas o adquisiciones intracomunitarias o transferencias en consigna; no se presenta en trimestres sin operaciones. Plazo trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Si las entregas de bienes y prestaciones de servicios superan 50.000 € en el trimestre actual o en cualquiera de los cuatro anteriores, la periodicidad es mensual: 1-20 del mes siguiente, julio hasta el 20 de septiembre y diciembre hasta el 30 de enero. El calendario genera la versión trimestral; si superas el umbral, cambia la periodicidad a mensual. Verifica los NIF-IVA en VIES antes de presentar."
+    notes: "Solo se presenta si hay entregas o adquisiciones intracomunitarias o transferencias en consigna; no se presenta en trimestres sin operaciones. Plazo trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Si las entregas de bienes y prestaciones de servicios superan 50.000 € en el trimestre actual o en cualquiera de los cuatro anteriores, la periodicidad es mensual: 1-20 del mes siguiente, julio hasta el 20 de septiembre y diciembre hasta el 30 de enero. Marca \"349 mensual\" en el perfil para que el calendario se expanda mensualmente. Verifica los NIF-IVA en VIES antes de presentar."
 
   - code: "347"
     name: "Operaciones con terceras personas"

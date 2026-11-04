@@ -296,12 +296,12 @@ Cada modelo declara:
 - `code`, `name`, `entity`, `category`, `periodicity`, `description` (explicación de para qué sirve), `url`.
 - `updated_at` (opcional): fecha de la última actualización de esa ficha. Si se omite, hereda la del catálogo.
 - `obsolete` (opcional): conserva un modelo histórico sin tratarlo como vigente. El 037 está marcado así desde su supresión en 2025.
-- `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres, actividad económica, operaciones intracomunitarias, retenciones profesionales, exención de pagos fraccionados o SII.
-- `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento, `due_days` para el último trimestre y `sii_monthly`/`monthly_due_days` para el IVA mensual del SII.
+- `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres, actividad económica, operaciones intracomunitarias, retenciones profesionales, exención de pagos fraccionados o SII. Si el perfil marca una actividad adicional en régimen general, los modelos generales (303 y 390) también se aplican aunque el régimen principal sea simplificado, recargo o exento.
+- `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento, `due_days` para el último trimestre y `monthly_when` para convertir un calendario trimestral en mensual según el perfil (`sii`, `monthly_vat`, `monthly_withholdings` o `intracommunity_over_50k`). `monthly_due_days` ajusta el día de cada mes y `monthly_due_months` permite excepciones como el 349 mensual.
 - `documents`: checklist documental orientativa con los soportes habituales para cumplimentar el modelo; la ficha oficial puede exigir únicamente el modelo.
 - `auto`: si se genera automáticamente en el calendario. Los modelos condicionados a un hecho (347, 309) o a operaciones concretas quedan como trámite puntual para revisión; el 349 solo se genera si el perfil declara operaciones intracomunitarias.
 
-La aplicabilidad se revisó contra la AEAT y la Seguridad Social en noviembre de 2026. El perfil distingue el régimen de IVA y el método de IRPF, pero no modela combinaciones de regímenes dentro de una misma actividad. Si se compagina recargo de equivalencia, simplificado, exención o varias actividades, el catálogo muestra la obligación principal y las notas indican las excepciones que hay que revisar.
+La aplicabilidad se revisó contra la AEAT y la Seguridad Social en noviembre de 2026. El perfil distingue el régimen de IVA principal y permite marcar una actividad adicional en régimen general para las combinaciones habituales. También permite declarar el 303 mensual, el 111/115 mensual y el 349 mensual cuando el contribuyente cumple los umbrales o pertenece a los colectivos obligados. El 347 y el 840 siguen siendo manuales porque el umbral de 3.005,06 € y el INCN no se deducen de forma fiable de los datos modelados.
 
 Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 aparece en el calendario de 2027. Los sábados y domingos se trasladan al lunes.
 

@@ -82,7 +82,7 @@ func TestApplicabilityForAutonomoProfiles(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	t.Run("303 solo general y simplificado", func(t *testing.T) {
+	t.Run("303 general, simplificado o actividad general adicional", func(t *testing.T) {
 		for _, regime := range []string{"general", "simplificado"} {
 			tp := baseAutonomo()
 			tp.VATRegime = regime
@@ -95,6 +95,10 @@ func TestApplicabilityForAutonomoProfiles(t *testing.T) {
 			tp.VATRegime = regime
 			if modelApplies(t, c, "303", tp) {
 				t.Errorf("303 should not apply to %s", regime)
+			}
+			tp.HasGeneralVATActivity = true
+			if !modelApplies(t, c, "303", tp) {
+				t.Errorf("303 should apply to %s with an additional general-regime activity", regime)
 			}
 		}
 	})
@@ -113,6 +117,10 @@ func TestApplicabilityForAutonomoProfiles(t *testing.T) {
 			tp.VATRegime = regime
 			if modelApplies(t, c, "390", tp) {
 				t.Errorf("390 should not apply to %s", regime)
+			}
+			tp.HasGeneralVATActivity = true
+			if !modelApplies(t, c, "390", tp) {
+				t.Errorf("390 should apply to %s with an additional general-regime activity", regime)
 			}
 		}
 	})
@@ -201,7 +209,7 @@ func TestConditionalModelsAreManual(t *testing.T) {
 	}
 }
 
-func TestScheduleDueDaysAndSII(t *testing.T) {
+func TestScheduleDueDaysAndMonthlyConditions(t *testing.T) {
 	c, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -217,17 +225,31 @@ func TestScheduleDueDaysAndSII(t *testing.T) {
 		if len(m.Schedule.MonthlyDueDays) > 0 && len(m.Schedule.MonthlyDueDays) != 12 {
 			t.Errorf("%s has %d monthly_due_days", m.Code, len(m.Schedule.MonthlyDueDays))
 		}
+		if len(m.Schedule.MonthlyDueMonths) > 0 && len(m.Schedule.MonthlyDueMonths) != 12 {
+			t.Errorf("%s has %d monthly_due_months", m.Code, len(m.Schedule.MonthlyDueMonths))
+		}
 	}
 
 	m303, _ := c.Get("303")
-	if !m303.Schedule.SIIMonthly {
-		t.Error("303 should switch to monthly with SII")
+	if !contains(m303.Schedule.MonthlyWhen, "sii") || !contains(m303.Schedule.MonthlyWhen, "monthly_vat") {
+		t.Error("303 should switch to monthly with SII or an explicit monthly VAT profile")
 	}
 	if len(m303.Schedule.DueDays) != 4 || m303.Schedule.DueDays[0] != 30 {
 		t.Error("303 4T should be due on 30 January")
 	}
 	if len(m303.Schedule.MonthlyDueDays) != 12 || m303.Schedule.MonthlyDueDays[1] != 0 {
 		t.Error("303 SII monthly_due_days should make the January period due at the end of February")
+	}
+	m111, _ := c.Get("111")
+	if !contains(m111.Schedule.MonthlyWhen, "monthly_withholdings") {
+		t.Error("111 should switch to monthly with monthly withholdings")
+	}
+	m349, _ := c.Get("349")
+	if !contains(m349.Schedule.MonthlyWhen, "intracommunity_over_50k") {
+		t.Error("349 should switch to monthly above 50,000 EUR")
+	}
+	if len(m349.Schedule.MonthlyDueMonths) != 12 || m349.Schedule.MonthlyDueMonths[6] != 9 {
+		t.Error("349 July period should be due in September")
 	}
 	m390, _ := c.Get("390")
 	if m390.Schedule.DueDay != 30 {

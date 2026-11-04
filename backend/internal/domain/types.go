@@ -34,6 +34,10 @@ type Taxpayer struct {
 	WithholdsProfessionalIncome     bool     `json:"withholds_professional_income"`
 	ExemptFromIRPFFractionalPayment bool     `json:"exempt_from_irpf_fractional_payment"`
 	UsesSII                         bool     `json:"uses_sii"`
+	HasGeneralVATActivity           bool     `json:"has_general_vat_activity"`
+	MonthlyVAT                      bool     `json:"monthly_vat"`
+	MonthlyWithholdings             bool     `json:"monthly_withholdings"`
+	IntracommunityOver50K           bool     `json:"intracommunity_over_50k"`
 	CNAEs                           []string `json:"cnaes"`
 	FiscalYearEnd                   string   `json:"fiscal_year_end"`
 	IBAN                            string   `json:"iban"`
