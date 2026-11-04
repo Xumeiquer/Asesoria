@@ -3,6 +3,8 @@ package api
 import (
 	"slices"
 	"testing"
+
+	"github.com/Xumeiquer/asesoria/internal/domain"
 )
 
 func validRetaInput() taxpayerInput {
@@ -79,6 +81,63 @@ func TestTaxpayerInputRetaProfile(t *testing.T) {
 			t.Fatalf("SL kept RETA data: %+v", got)
 		}
 	})
+}
+
+func TestTaxpayerInputProfileFlags(t *testing.T) {
+	in := validRetaInput()
+	in.HasIntracommunityOperations = true
+	in.WithholdsProfessionalIncome = true
+	in.ExemptFromIRPFFractionalPayment = true
+	in.UsesSII = true
+	in.HasGeneralVATActivity = true
+	in.MonthlyVAT = true
+	in.MonthlyWithholdings = true
+	in.IntracommunityOver50K = true
+	got, msg := in.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected validation error: %s", msg)
+	}
+	if !got.HasIntracommunityOperations || !got.WithholdsProfessionalIncome ||
+		!got.ExemptFromIRPFFractionalPayment || !got.UsesSII ||
+		!got.HasGeneralVATActivity || !got.MonthlyVAT ||
+		!got.MonthlyWithholdings || !got.IntracommunityOver50K {
+		t.Fatalf("profile flags were not copied: %+v", got)
+	}
+
+	in.LegalForm = "sl"
+	got, msg = in.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected validation error: %s", msg)
+	}
+	if got.ExemptFromIRPFFractionalPayment {
+		t.Fatal("SL should not keep the IRPF fractional-payment exemption")
+	}
+}
+
+func TestTaxpayerProfileChangedDetectsFlags(t *testing.T) {
+	before, _ := validRetaInput().toDomain()
+	after := before
+	after.HasIntracommunityOperations = true
+	if !taxpayerProfileChanged(before, after) {
+		t.Fatal("intracommunity operations should trigger a calendar recalculation")
+	}
+	after = before
+	after.UsesSII = true
+	if !taxpayerProfileChanged(before, after) {
+		t.Fatal("SII should trigger a calendar recalculation")
+	}
+	for name, mutate := range map[string]func(*domain.Taxpayer){
+		"general VAT activity": func(t *domain.Taxpayer) { t.HasGeneralVATActivity = true },
+		"monthly VAT":          func(t *domain.Taxpayer) { t.MonthlyVAT = true },
+		"monthly withholdings": func(t *domain.Taxpayer) { t.MonthlyWithholdings = true },
+		"monthly 349":          func(t *domain.Taxpayer) { t.IntracommunityOver50K = true },
+	} {
+		after = before
+		mutate(&after)
+		if !taxpayerProfileChanged(before, after) {
+			t.Errorf("%s should trigger a calendar recalculation", name)
+		}
+	}
 }
 
 func TestTaxpayerInputMultipleCNAEs(t *testing.T) {

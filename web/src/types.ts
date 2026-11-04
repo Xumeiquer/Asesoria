@@ -13,6 +13,14 @@ export interface Taxpayer {
   has_employees: boolean
   has_rentals: boolean
   economic_activity: boolean
+  has_intracommunity_operations: boolean
+  withholds_professional_income: boolean
+  exempt_from_irpf_fractional_payment: boolean
+  uses_sii: boolean
+  has_general_vat_activity: boolean
+  monthly_vat: boolean
+  monthly_withholdings: boolean
+  intracommunity_over_50k: boolean
   cnaes: string[]
   fiscal_year_end: string
   iban: string
@@ -161,6 +169,10 @@ export interface Schedule {
   type: string
   due_months?: number[]
   due_day?: number
+  due_days?: number[]
+  monthly_when?: string[]
+  monthly_due_days?: number[]
+  monthly_due_months?: number[]
   dues?: Array<{ month: number; day: number; period_start: string; period_end: string; period_year_offset: number }>
 }
 
@@ -192,6 +204,7 @@ export interface Model {
   documents: string[]
   document_requirements: DocumentRequirement[]
   notes: string
+  manual_check?: string
   applicable: boolean
   calculator: boolean
 }

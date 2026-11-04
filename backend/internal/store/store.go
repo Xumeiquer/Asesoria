@@ -130,7 +130,10 @@ func (s *Store) Log(ctx context.Context, actor, action, entity, entityID string,
 func (s *Store) ListTaxpayers(ctx context.Context) ([]domain.Taxpayer, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		       has_employees, has_rentals, economic_activity, cnaes_json, fiscal_year_end, iban,
+		       has_employees, has_rentals, has_intracommunity_operations,
+		       withholds_professional_income, exempt_from_irpf_fractional_payment, uses_sii,
+		       has_general_vat_activity, monthly_vat, monthly_withholdings, intracommunity_over_50k,
+		       economic_activity, cnaes_json, fiscal_year_end, iban,
 		       activity_start,
 		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
@@ -153,7 +156,10 @@ func (s *Store) ListTaxpayers(ctx context.Context) ([]domain.Taxpayer, error) {
 func (s *Store) GetTaxpayer(ctx context.Context, id string) (domain.Taxpayer, error) {
 	row := s.DB.QueryRowContext(ctx, `
 		SELECT id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		       has_employees, has_rentals, economic_activity, cnaes_json, fiscal_year_end, iban,
+		       has_employees, has_rentals, has_intracommunity_operations,
+		       withholds_professional_income, exempt_from_irpf_fractional_payment, uses_sii,
+		       has_general_vat_activity, monthly_vat, monthly_withholdings, intracommunity_over_50k,
+		       economic_activity, cnaes_json, fiscal_year_end, iban,
 		       activity_start,
 		       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		       created_at, updated_at
@@ -173,13 +179,21 @@ func (s *Store) CreateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	t.UpdatedAt = t.CreatedAt
 	_, err := s.DB.ExecContext(ctx, `
 		INSERT INTO taxpayers (id, nif, name, legal_form, email, phone, vat_regime, irpf_method,
-		                       has_employees, has_rentals, economic_activity, cnae, cnaes_json,
+		                       has_employees, has_rentals, has_intracommunity_operations,
+		                       withholds_professional_income, exempt_from_irpf_fractional_payment, uses_sii,
+		                       has_general_vat_activity, monthly_vat, monthly_withholdings, intracommunity_over_50k,
+		                       economic_activity, cnae, cnaes_json,
 		                       fiscal_year_end, iban, activity_start,
 		                       reta_base_cents, reta_base_from, reta_net_income_cents, reta_net_income_year,
 		                       created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
-		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
+		boolInt(t.HasEmployees), boolInt(t.HasRentals),
+		boolInt(t.HasIntracommunityOperations), boolInt(t.WithholdsProfessionalIncome),
+		boolInt(t.ExemptFromIRPFFractionalPayment), boolInt(t.UsesSII),
+		boolInt(t.HasGeneralVATActivity), boolInt(t.MonthlyVAT),
+		boolInt(t.MonthlyWithholdings), boolInt(t.IntracommunityOver50K),
+		boolInt(t.EconomicActivity),
 		firstCNAE(t.CNAEs), jsonString(t.CNAEs), t.FiscalYearEnd, t.IBAN, t.ActivityStart,
 		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
 		t.CreatedAt, t.UpdatedAt)
@@ -191,13 +205,22 @@ func (s *Store) UpdateTaxpayer(ctx context.Context, t *domain.Taxpayer) error {
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE taxpayers SET nif = ?, name = ?, legal_form = ?, email = ?, phone = ?,
 		       vat_regime = ?, irpf_method = ?, has_employees = ?, has_rentals = ?,
+		       has_intracommunity_operations = ?, withholds_professional_income = ?,
+		       exempt_from_irpf_fractional_payment = ?, uses_sii = ?,
+		       has_general_vat_activity = ?, monthly_vat = ?, monthly_withholdings = ?,
+		       intracommunity_over_50k = ?,
 		       economic_activity = ?, cnae = ?, cnaes_json = ?, fiscal_year_end = ?, iban = ?,
 		       activity_start = ?,
 		       reta_base_cents = ?, reta_base_from = ?, reta_net_income_cents = ?, reta_net_income_year = ?,
 		       updated_at = ?
 		WHERE id = ?`,
 		t.NIF, t.Name, t.LegalForm, t.Email, t.Phone, t.VATRegime, t.IRPFMethod,
-		boolInt(t.HasEmployees), boolInt(t.HasRentals), boolInt(t.EconomicActivity),
+		boolInt(t.HasEmployees), boolInt(t.HasRentals),
+		boolInt(t.HasIntracommunityOperations), boolInt(t.WithholdsProfessionalIncome),
+		boolInt(t.ExemptFromIRPFFractionalPayment), boolInt(t.UsesSII),
+		boolInt(t.HasGeneralVATActivity), boolInt(t.MonthlyVAT),
+		boolInt(t.MonthlyWithholdings), boolInt(t.IntracommunityOver50K),
+		boolInt(t.EconomicActivity),
 		firstCNAE(t.CNAEs), jsonString(t.CNAEs), t.FiscalYearEnd, t.IBAN, t.ActivityStart,
 		t.RetaBaseCents, t.RetaBaseFrom, t.RetaNetIncomeCents, t.RetaNetIncomeYear,
 		t.UpdatedAt, t.ID)
@@ -259,15 +282,28 @@ func (s *Store) ListRetaBaseChanges(ctx context.Context, taxpayerID string) ([]d
 
 func scanTaxpayer(row scanner) (domain.Taxpayer, error) {
 	var t domain.Taxpayer
-	var hasEmployees, hasRentals, economicActivity int
+	var hasEmployees, hasRentals, hasIntracommunity, withholdsProfessional, exemptFractional, usesSII int
+	var hasGeneralVATActivity, monthlyVAT, monthlyWithholdings, intracommunityOver50K int
+	var economicActivity int
 	var cnaesJSON string
 	err := row.Scan(&t.ID, &t.NIF, &t.Name, &t.LegalForm, &t.Email, &t.Phone,
-		&t.VATRegime, &t.IRPFMethod, &hasEmployees, &hasRentals, &economicActivity,
+		&t.VATRegime, &t.IRPFMethod, &hasEmployees, &hasRentals,
+		&hasIntracommunity, &withholdsProfessional, &exemptFractional, &usesSII,
+		&hasGeneralVATActivity, &monthlyVAT, &monthlyWithholdings, &intracommunityOver50K,
+		&economicActivity,
 		&cnaesJSON, &t.FiscalYearEnd, &t.IBAN, &t.ActivityStart,
 		&t.RetaBaseCents, &t.RetaBaseFrom, &t.RetaNetIncomeCents, &t.RetaNetIncomeYear,
 		&t.CreatedAt, &t.UpdatedAt)
 	t.HasEmployees = hasEmployees == 1
 	t.HasRentals = hasRentals == 1
+	t.HasIntracommunityOperations = hasIntracommunity == 1
+	t.WithholdsProfessionalIncome = withholdsProfessional == 1
+	t.ExemptFromIRPFFractionalPayment = exemptFractional == 1
+	t.UsesSII = usesSII == 1
+	t.HasGeneralVATActivity = hasGeneralVATActivity == 1
+	t.MonthlyVAT = monthlyVAT == 1
+	t.MonthlyWithholdings = monthlyWithholdings == 1
+	t.IntracommunityOver50K = intracommunityOver50K == 1
 	t.EconomicActivity = economicActivity == 1
 	t.CNAEs = decodeStringSlice(cnaesJSON)
 	return t, err

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowUpRight, Calculator, CheckCircle2, FileText, Search, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowUpRight, Calculator, CheckCircle2, FileText, Search, XCircle } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
 import Modal from '@/components/Modal.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -144,6 +144,9 @@ onMounted(load)
           <span v-if="model.calculator" class="chip bg-emerald-50 text-emerald-700">
             <Calculator class="h-3.5 w-3.5" /> Cálculo automático
           </span>
+          <span v-if="model.manual_check" class="chip bg-amber-50 text-amber-700">
+            <AlertTriangle class="h-3.5 w-3.5" /> Revisión manual
+          </span>
           <span v-if="model.obsolete" class="chip bg-slate-200 text-slate-600">Suprimido</span>
           <span v-else-if="model.applicable && model.auto" class="chip bg-slate-100 text-slate-600">
             <CheckCircle2 class="h-3.5 w-3.5" /> En tu calendario
@@ -203,6 +206,11 @@ onMounted(load)
             </li>
           </ul>
           <p v-if="!selected.document_requirements.length" class="text-sm text-slate-400">Sin checklist específica.</p>
+        </div>
+
+        <div v-if="selected.manual_check" class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p class="text-xs font-bold uppercase tracking-wider text-amber-700">Comprobación manual</p>
+          <p class="mt-1 text-sm leading-relaxed text-amber-800">{{ selected.manual_check }}</p>
         </div>
 
         <div v-if="selected.notes" class="rounded-xl border border-amber-200 bg-amber-50 p-4">

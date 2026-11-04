@@ -77,6 +77,26 @@ func TestClassifyFromFolderAndContent(t *testing.T) {
 	}
 }
 
+func TestClassifyConditionalIVAModels(t *testing.T) {
+	taxpayer := testTaxpayer()
+	for _, tc := range []struct {
+		code string
+		text string
+	}{
+		{"309", "Modelo 309\nFecha: 12/05/2025\n"},
+		{"349", "Modelo 349\nFecha: 12/05/2025\n"},
+	} {
+		rel := filepath.Join(FolderName(taxpayer), "2025", "2T", tc.code+".txt")
+		c := Classify(rel, tc.text, []domain.Taxpayer{taxpayer}, nil, time.Now())
+		if c.ModelCode != tc.code {
+			t.Errorf("model code = %q, want %q", c.ModelCode, tc.code)
+		}
+		if c.Period != "2T" {
+			t.Errorf("%s period = %q, want 2T", tc.code, c.Period)
+		}
+	}
+}
+
 func TestClassifyLooseFileNeedsReview(t *testing.T) {
 	c := Classify("entrada/sin-datos.txt", "documento sin información fiscal", nil, nil, time.Now())
 	if c.TaxpayerID != nil || !c.Review {

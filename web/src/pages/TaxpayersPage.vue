@@ -114,6 +114,14 @@ const emptyForm = () => ({
   has_employees: false,
   has_rentals: false,
   economic_activity: true,
+  has_intracommunity_operations: false,
+  withholds_professional_income: false,
+  exempt_from_irpf_fractional_payment: false,
+  uses_sii: false,
+  has_general_vat_activity: false,
+  monthly_vat: false,
+  monthly_withholdings: false,
+  intracommunity_over_50k: false,
   cnaes: [] as string[],
   fiscal_year_end: '12-31',
   iban: '',
@@ -127,6 +135,24 @@ const emptyForm = () => ({
 const form = ref(emptyForm())
 const cnaeDraft = ref('')
 const isCompany = computed(() => form.value.legal_form === 'sl')
+const profileSummary = computed(() => {
+  const items: string[] = []
+  if (form.value.has_employees) items.push('Empleados')
+  if (form.value.has_rentals) items.push('Alquileres')
+  if (form.value.has_intracommunity_operations) items.push('Operaciones UE')
+  if (form.value.withholds_professional_income) items.push('Retenciones profesionales')
+  if (form.value.uses_sii) items.push('SII')
+  if (form.value.vat_regime !== 'general' && form.value.has_general_vat_activity) {
+    items.push('Régimen general adicional')
+  }
+  if (form.value.monthly_vat) items.push('303 mensual')
+  if (form.value.monthly_withholdings) items.push('111/115 mensual')
+  if (form.value.has_intracommunity_operations && form.value.intracommunity_over_50k) {
+    items.push('349 mensual')
+  }
+  if (form.value.exempt_from_irpf_fractional_payment) items.push('130/131 exento')
+  return items.length ? items.join(' · ') : 'Sin obligaciones adicionales'
+})
 
 function commitCnaeDraft(): boolean {
   const parts = cnaeDraft.value
@@ -205,6 +231,14 @@ function openEdit(taxpayer: Taxpayer) {
     has_employees: taxpayer.has_employees,
     has_rentals: taxpayer.has_rentals,
     economic_activity: taxpayer.economic_activity,
+    has_intracommunity_operations: taxpayer.has_intracommunity_operations ?? false,
+    withholds_professional_income: taxpayer.withholds_professional_income ?? false,
+    exempt_from_irpf_fractional_payment: taxpayer.exempt_from_irpf_fractional_payment ?? false,
+    uses_sii: taxpayer.uses_sii ?? false,
+    has_general_vat_activity: taxpayer.has_general_vat_activity ?? false,
+    monthly_vat: taxpayer.monthly_vat ?? false,
+    monthly_withholdings: taxpayer.monthly_withholdings ?? false,
+    intracommunity_over_50k: taxpayer.intracommunity_over_50k ?? false,
     cnaes: [...(taxpayer.cnaes ?? [])],
     fiscal_year_end: taxpayer.fiscal_year_end,
     iban: taxpayer.iban,
@@ -260,6 +294,18 @@ async function save() {
       has_employees: form.value.has_employees,
       has_rentals: form.value.has_rentals,
       economic_activity: form.value.economic_activity,
+      has_intracommunity_operations: form.value.has_intracommunity_operations,
+      withholds_professional_income: form.value.withholds_professional_income,
+      exempt_from_irpf_fractional_payment: isCompany.value
+        ? false
+        : form.value.exempt_from_irpf_fractional_payment,
+      uses_sii: form.value.uses_sii,
+      has_general_vat_activity:
+        form.value.vat_regime === 'general' ? false : form.value.has_general_vat_activity,
+      monthly_vat: form.value.monthly_vat,
+      monthly_withholdings: form.value.monthly_withholdings,
+      intracommunity_over_50k:
+        form.value.has_intracommunity_operations ? form.value.intracommunity_over_50k : false,
       cnaes: form.value.cnaes,
       fiscal_year_end: form.value.fiscal_year_end,
       iban: form.value.iban,
@@ -432,6 +478,14 @@ onMounted(async () => {
         <div class="mt-4 flex flex-wrap gap-1.5">
           <span v-if="taxpayer.has_employees" class="chip bg-sky-50 text-sky-700">Empleados</span>
           <span v-if="taxpayer.has_rentals" class="chip bg-amber-50 text-amber-700">Alquileres</span>
+          <span v-if="taxpayer.has_intracommunity_operations" class="chip bg-indigo-50 text-indigo-700">UE</span>
+          <span v-if="taxpayer.withholds_professional_income" class="chip bg-rose-50 text-rose-700">Retenciones prof.</span>
+          <span v-if="taxpayer.uses_sii" class="chip bg-cyan-50 text-cyan-700">SII</span>
+          <span v-if="taxpayer.vat_regime !== 'general' && taxpayer.has_general_vat_activity" class="chip bg-emerald-50 text-emerald-700">General adicional</span>
+          <span v-if="taxpayer.monthly_vat" class="chip bg-cyan-50 text-cyan-700">303 mensual</span>
+          <span v-if="taxpayer.monthly_withholdings" class="chip bg-rose-50 text-rose-700">111/115 mensual</span>
+          <span v-if="taxpayer.has_intracommunity_operations && taxpayer.intracommunity_over_50k" class="chip bg-indigo-50 text-indigo-700">349 mensual</span>
+          <span v-if="taxpayer.exempt_from_irpf_fractional_payment" class="chip bg-slate-100 text-slate-600">130/131 exento</span>
           <span v-if="!taxpayer.economic_activity" class="chip bg-slate-100 text-slate-500">Sin actividad</span>
           <span
             v-for="code in taxpayer.cnaes"
@@ -675,13 +729,49 @@ onMounted(async () => {
             </label>
             <label class="flex items-center gap-2.5 text-sm text-slate-700">
               <input v-model="form.has_employees" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
-              Tiene empleados (111, 190, TC1/TC2)
+              Tiene empleados (nóminas, TC1/TC2)
             </label>
             <label class="flex items-center gap-2.5 text-sm text-slate-700">
               <input v-model="form.has_rentals" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
               Paga alquileres sujetos a retención (115, 180)
             </label>
+            <label class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.has_intracommunity_operations" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              Opera con empresas o clientes de la UE (349)
+            </label>
+            <label v-if="form.has_intracommunity_operations" class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.intracommunity_over_50k" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              Supera 50.000 € en operaciones intracomunitarias (349 mensual)
+            </label>
+            <label class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.withholds_professional_income" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              Paga facturas de profesionales con retención (111, 190)
+            </label>
+            <label v-if="form.vat_regime !== 'general'" class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.has_general_vat_activity" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              También realiza actividad en régimen general de IVA (303, 390)
+            </label>
+            <label class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.uses_sii" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              Lleva los libros de IVA en el SII (303 mensual; 390 exonerado)
+            </label>
+            <label class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.monthly_vat" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              303 mensual: gran empresa, grupo de IVA o REDEME
+            </label>
+            <label class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.monthly_withholdings" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              111/115 mensual: gran empresa, DCGC/UGGE o Administración > 6 M€
+            </label>
+            <label v-if="!isCompany" class="flex items-center gap-2.5 text-sm text-slate-700">
+              <input v-model="form.exempt_from_irpf_fractional_payment" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600" />
+              Exento de 130/131 por el 70 % con retención
+            </label>
           </div>
+          <p class="mt-3 text-[11px] text-slate-400">
+            Estos indicadores ajustan el catálogo y el calendario. Si compaginas regímenes o actividades, elige el perfil
+            principal y marca las casillas adicionales para que se generen también las obligaciones que correspondan.
+          </p>
         </div>
         </template>
 
@@ -722,6 +812,10 @@ onMounted(async () => {
               <dd class="mt-0.5 font-medium capitalize text-slate-700">
                 {{ isCompany ? form.fiscal_year_end : form.irpf_method }}
               </dd>
+            </div>
+            <div class="sm:col-span-2">
+              <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Perfil de obligaciones</dt>
+              <dd class="mt-0.5 font-medium text-slate-700">{{ profileSummary }}</dd>
             </div>
           </dl>
         </div>

@@ -59,7 +59,12 @@ function setTab(id: 'summary' | 'docs' | 'present') {
 }
 
 const lines = computed(() => filing.value?.computed?.lines ?? [])
-const warnings = computed(() => filing.value?.computed?.warnings ?? [])
+const warnings = computed(() => {
+  const list = [...(filing.value?.computed?.warnings ?? [])]
+  const manualCheck = model.value?.manual_check?.trim()
+  if (manualCheck && !list.includes(manualCheck)) list.push(manualCheck)
+  return list
+})
 const dueDays = computed(() => (filing.value ? daysUntil(filing.value.due_date) : 0))
 const isOpen = computed(() => filing.value && !['presented', 'not_applicable'].includes(filing.value.status))
 const formAdapter = computed(() => (filing.value ? formAdapterFor(filing.value) : undefined))

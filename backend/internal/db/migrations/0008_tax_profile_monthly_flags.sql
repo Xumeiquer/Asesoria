@@ -1,0 +1,4 @@
+ALTER TABLE taxpayers ADD COLUMN has_general_vat_activity INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE taxpayers ADD COLUMN monthly_vat INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE taxpayers ADD COLUMN monthly_withholdings INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE taxpayers ADD COLUMN intracommunity_over_50k INTEGER NOT NULL DEFAULT 0;

@@ -35,6 +35,9 @@ type Model struct {
 	// item to the document type and library folder used by uploads.
 	DocumentRequirements []docmeta.Requirement `yaml:"-" json:"document_requirements"`
 	Notes                string                `yaml:"notes" json:"notes"`
+	// ManualCheck is an action-oriented warning for checks the application
+	// cannot automate, such as turnover thresholds or IAE exemptions.
+	ManualCheck string `yaml:"manual_check,omitempty" json:"manual_check,omitempty"`
 }
 
 // Applies is a set of conditions. Empty fields mean "no constraint".
@@ -45,6 +48,11 @@ type Applies struct {
 	HasEmployees     *bool    `yaml:"has_employees,omitempty" json:"has_employees,omitempty"`
 	HasRentals       *bool    `yaml:"has_rentals,omitempty" json:"has_rentals,omitempty"`
 	EconomicActivity *bool    `yaml:"economic_activity,omitempty" json:"economic_activity,omitempty"`
+
+	HasIntracommunityOperations     *bool `yaml:"has_intracommunity_operations,omitempty" json:"has_intracommunity_operations,omitempty"`
+	WithholdsIncome                 *bool `yaml:"withholds_income,omitempty" json:"withholds_income,omitempty"`
+	ExemptFromIRPFFractionalPayment *bool `yaml:"exempt_from_irpf_fractional_payment,omitempty" json:"exempt_from_irpf_fractional_payment,omitempty"`
+	UsesSII                         *bool `yaml:"uses_sii,omitempty" json:"uses_sii,omitempty"`
 }
 
 // Schedule defines when an obligation is due and which period it covers.
@@ -55,6 +63,22 @@ type Schedule struct {
 	DueMonths []int `yaml:"due_months,omitempty" json:"due_months,omitempty"`
 	// DueDay is 0 for "last day of month".
 	DueDay int `yaml:"due_day" json:"due_day"`
+	// DueDays overrides DueDay for each entry in DueMonths. It is used when
+	// the last quarter has a different deadline (for example, 30 January).
+	DueDays []int `yaml:"due_days,omitempty" json:"due_days,omitempty"`
+	// MonthlyWhen switches a quarterly schedule to monthly when any of the
+	// listed profile conditions is met. Supported values are "sii",
+	// "monthly_vat", "monthly_withholdings" and
+	// "intracommunity_over_50k".
+	MonthlyWhen []string `yaml:"monthly_when,omitempty" json:"monthly_when,omitempty"`
+	// MonthlyDueDays overrides DueDay for each due month (January to
+	// December) when the schedule expands monthly. 0 means the last day of
+	// the month.
+	MonthlyDueDays []int `yaml:"monthly_due_days,omitempty" json:"monthly_due_days,omitempty"`
+	// MonthlyDueMonths maps each period month (January to December) to its
+	// due month. It is used by conditional monthly schedules with exceptions,
+	// such as the July period of model 349.
+	MonthlyDueMonths []int `yaml:"monthly_due_months,omitempty" json:"monthly_due_months,omitempty"`
 	// PeriodOffsetMonths is used by monthly schedules (default -1).
 	PeriodOffsetMonths *int `yaml:"period_offset_months,omitempty" json:"period_offset_months,omitempty"`
 	// PeriodYearOffset is used by annual schedules (default -1).
@@ -102,6 +126,39 @@ func Load() (*Catalog, error) {
 		if f.Models[i].UpdatedAt == "" {
 			f.Models[i].UpdatedAt = f.UpdatedAt
 		}
+		if s := f.Models[i].Schedule; s != nil {
+			if len(s.DueDays) > 0 && len(s.DueMonths) > 0 && len(s.DueDays) != len(s.DueMonths) {
+				return nil, fmt.Errorf("model %s has %d due_days for %d due_months", f.Models[i].Code, len(s.DueDays), len(s.DueMonths))
+			}
+			if len(s.MonthlyDueDays) > 0 && len(s.MonthlyDueDays) != 12 {
+				return nil, fmt.Errorf("model %s has %d monthly_due_days, want 12", f.Models[i].Code, len(s.MonthlyDueDays))
+			}
+			if len(s.MonthlyDueMonths) > 0 {
+				if len(s.MonthlyDueMonths) != 12 {
+					return nil, fmt.Errorf("model %s has %d monthly_due_months, want 12", f.Models[i].Code, len(s.MonthlyDueMonths))
+				}
+				for _, month := range s.MonthlyDueMonths {
+					if month < 1 || month > 12 {
+						return nil, fmt.Errorf("model %s has an invalid monthly_due_months value %d", f.Models[i].Code, month)
+					}
+				}
+				if len(s.MonthlyWhen) == 0 {
+					return nil, fmt.Errorf("model %s uses monthly_due_months without monthly_when", f.Models[i].Code)
+				}
+			}
+			if len(s.MonthlyWhen) > 0 {
+				if s.Type != "quarterly" {
+					return nil, fmt.Errorf("model %s uses monthly_when with a %s schedule", f.Models[i].Code, s.Type)
+				}
+				for _, when := range s.MonthlyWhen {
+					switch when {
+					case "sii", "monthly_vat", "monthly_withholdings", "intracommunity_over_50k":
+					default:
+						return nil, fmt.Errorf("model %s has an unknown monthly_when value %q", f.Models[i].Code, when)
+					}
+				}
+			}
+		}
 		f.Models[i].DocumentRequirements = make([]docmeta.Requirement, 0, len(f.Models[i].Documents))
 		for _, label := range f.Models[i].Documents {
 			f.Models[i].DocumentRequirements = append(
@@ -144,8 +201,18 @@ func (m Model) AppliesTo(t domain.Taxpayer) bool {
 	if len(a.LegalForms) > 0 && !contains(a.LegalForms, t.LegalForm) {
 		return false
 	}
-	if len(a.VATRegimes) > 0 && !contains(a.VATRegimes, t.VATRegime) {
-		return false
+	if len(a.VATRegimes) > 0 {
+		matches := contains(a.VATRegimes, t.VATRegime)
+		// A taxpayer can combine a special regime (recargo de
+		// equivalencia, simplified, exemption...) with an activity under
+		// the general regime. In that case the general-regime models also
+		// apply.
+		if !matches && t.HasGeneralVATActivity && contains(a.VATRegimes, "general") {
+			matches = true
+		}
+		if !matches {
+			return false
+		}
 	}
 	if len(a.IRPFMethods) > 0 && !contains(a.IRPFMethods, t.IRPFMethod) {
 		return false
@@ -154,6 +221,21 @@ func (m Model) AppliesTo(t domain.Taxpayer) bool {
 		return false
 	}
 	if a.HasRentals != nil && *a.HasRentals != t.HasRentals {
+		return false
+	}
+	if a.HasIntracommunityOperations != nil && *a.HasIntracommunityOperations != t.HasIntracommunityOperations {
+		return false
+	}
+	if a.WithholdsIncome != nil {
+		withholds := t.HasEmployees || t.WithholdsProfessionalIncome
+		if *a.WithholdsIncome != withholds {
+			return false
+		}
+	}
+	if a.ExemptFromIRPFFractionalPayment != nil && *a.ExemptFromIRPFFractionalPayment != t.ExemptFromIRPFFractionalPayment {
+		return false
+	}
+	if a.UsesSII != nil && *a.UsesSII != t.UsesSII {
 		return false
 	}
 	if a.EconomicActivity != nil && *a.EconomicActivity != t.EconomicActivity {

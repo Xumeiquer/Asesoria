@@ -18,21 +18,30 @@ const (
 
 // Taxpayer is the person or company the application works for.
 type Taxpayer struct {
-	ID               string   `json:"id"`
-	NIF              string   `json:"nif"`
-	Name             string   `json:"name"`
-	LegalForm        string   `json:"legal_form"`
-	Email            string   `json:"email"`
-	Phone            string   `json:"phone"`
-	VATRegime        string   `json:"vat_regime"`
-	IRPFMethod       string   `json:"irpf_method"`
-	HasEmployees     bool     `json:"has_employees"`
-	HasRentals       bool     `json:"has_rentals"`
-	EconomicActivity bool     `json:"economic_activity"`
-	CNAEs            []string `json:"cnaes"`
-	FiscalYearEnd    string   `json:"fiscal_year_end"`
-	IBAN             string   `json:"iban"`
-	ActivityStart    string   `json:"activity_start"`
+	ID               string `json:"id"`
+	NIF              string `json:"nif"`
+	Name             string `json:"name"`
+	LegalForm        string `json:"legal_form"`
+	Email            string `json:"email"`
+	Phone            string `json:"phone"`
+	VATRegime        string `json:"vat_regime"`
+	IRPFMethod       string `json:"irpf_method"`
+	HasEmployees     bool   `json:"has_employees"`
+	HasRentals       bool   `json:"has_rentals"`
+	EconomicActivity bool   `json:"economic_activity"`
+
+	HasIntracommunityOperations     bool     `json:"has_intracommunity_operations"`
+	WithholdsProfessionalIncome     bool     `json:"withholds_professional_income"`
+	ExemptFromIRPFFractionalPayment bool     `json:"exempt_from_irpf_fractional_payment"`
+	UsesSII                         bool     `json:"uses_sii"`
+	HasGeneralVATActivity           bool     `json:"has_general_vat_activity"`
+	MonthlyVAT                      bool     `json:"monthly_vat"`
+	MonthlyWithholdings             bool     `json:"monthly_withholdings"`
+	IntracommunityOver50K           bool     `json:"intracommunity_over_50k"`
+	CNAEs                           []string `json:"cnaes"`
+	FiscalYearEnd                   string   `json:"fiscal_year_end"`
+	IBAN                            string   `json:"iban"`
+	ActivityStart                   string   `json:"activity_start"`
 
 	// RETA profile. Amounts are monthly bases and annual net-income forecasts
 	// expressed in cents. RetaBaseFrom is the first day the chosen base applies.
