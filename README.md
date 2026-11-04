@@ -11,7 +11,7 @@ La aplicación está pensada para un único usuario en su propio equipo: el back
 
 MVP funcional. Incluye:
 
-- Catálogo declarativo de **38 modelos** (AEAT, TGSS y Registro Mercantil) con periodicidad y reglas de aplicabilidad por perfil fiscal.
+- Catálogo declarativo de **39 modelos** (AEAT, TGSS y Registro Mercantil) con periodicidad y reglas de aplicabilidad por perfil fiscal.
 - Generación de calendario por ejercicio, con traslado de vencimientos de fin de semana al lunes.
 - Expediente por obligación: estado, notas, checklist, documentos y justificante.
 - Cálculo automático de **modelo 303 (IVA)** y **modelo 130 (pago fraccionado de IRPF)** a partir de facturas registradas.
@@ -296,10 +296,12 @@ Cada modelo declara:
 - `code`, `name`, `entity`, `category`, `periodicity`, `description` (explicación de para qué sirve), `url`.
 - `updated_at` (opcional): fecha de la última actualización de esa ficha. Si se omite, hereda la del catálogo.
 - `obsolete` (opcional): conserva un modelo histórico sin tratarlo como vigente. El 037 está marcado así desde su supresión en 2025.
-- `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres o actividad económica.
-- `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento y offsets de periodo.
+- `applies`: forma jurídica, régimen de IVA, método de IRPF, empleados, alquileres, actividad económica, operaciones intracomunitarias, retenciones profesionales, exención de pagos fraccionados o SII.
+- `schedule`: `monthly`, `quarterly`, `annual` o `custom`, con meses, día de vencimiento, `due_days` para el último trimestre y `sii_monthly`/`monthly_due_days` para el IVA mensual del SII.
 - `documents`: checklist documental orientativa con los soportes habituales para cumplimentar el modelo; la ficha oficial puede exigir únicamente el modelo.
-- `auto`: si se genera automáticamente en el calendario.
+- `auto`: si se genera automáticamente en el calendario. Los modelos condicionados a un hecho (347, 309) o a operaciones concretas quedan como trámite puntual para revisión; el 349 solo se genera si el perfil declara operaciones intracomunitarias.
+
+La aplicabilidad se revisó contra la AEAT y la Seguridad Social en noviembre de 2026. El perfil distingue el régimen de IVA y el método de IRPF, pero no modela combinaciones de regímenes dentro de una misma actividad. Si se compagina recargo de equivalencia, simplificado, exención o varias actividades, el catálogo muestra la obligación principal y las notas indican las excepciones que hay que revisar.
 
 Los vencimientos se generan por **año de vencimiento**. Por eso el 4T de 2026 aparece en el calendario de 2027. Los sábados y domingos se trasladan al lunes.
 

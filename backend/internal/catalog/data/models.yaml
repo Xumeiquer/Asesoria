@@ -1,10 +1,12 @@
 version: "2026.1"
 # Fecha de la última revisión del catálogo. Cada modelo puede sobrescribirla
 # con su propio campo updated_at si su ficha se revisa en otra fecha.
-updated_at: "2026-10-29"
+updated_at: "2026-11-04"
 # Catálogo de obligaciones. Es data, no código: se versiona por ejercicio.
 # auto: true  -> se genera automáticamente en el calendario del contribuyente.
 # auto: false -> aparece en el catálogo y puede añadirse a mano (trámites puntuales).
+# due_days sigue el mismo orden que due_months: [enero, abril, julio, octubre]
+# en los modelos trimestrales. El 4T vence en enero del año siguiente.
 models:
   - code: "036"
     name: "Alta, modificación y baja censal"
@@ -44,17 +46,41 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G414.shtml"
     auto: true
     applies:
+      vat_regimes: ["general", "simplificado"]
       economic_activity: true
     schedule:
       type: quarterly
       due_months: [1, 4, 7, 10]
-      due_day: 20
+      due_days: [30, 20, 20, 20]
+      sii_monthly: true
+      monthly_due_days: [30, 0, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30]
     documents:
       - "Libro registro de facturas emitidas y recibidas"
       - "Facturas y justificantes de gastos deducibles"
       - "Documentos de importación, exportación y operaciones intracomunitarias"
       - "Autoliquidaciones de IVA de otros Estados miembros, si aplica"
-    notes: "Mensual para grandes empresas, grupos de IVA, REDEME y SII. Plazo: 1-20 del mes siguiente."
+    notes: "Trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Mensual para grandes empresas, grupos de IVA, REDEME y SII: 1-30 del mes siguiente, salvo el período de enero, que vence el último día de febrero. En recargo de equivalencia o actividad exenta no hay 303 por esa actividad; si compaginas otra actividad en régimen general, sí. Para operaciones no periódicas puede ser necesario el 309."
+
+  - code: "309"
+    name: "Autoliquidación no periódica de IVA"
+    entity: AEAT
+    category: "IVA"
+    periodicity: "Puntual"
+    description: "Sirve para declarar operaciones de IVA que no se incluyen en las autoliquidaciones periódicas: adquisiciones intracomunitarias, inversión del sujeto pasivo, entregas de inmuebles o regularizaciones."
+    url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G404.shtml"
+    auto: false
+    applies:
+      economic_activity: true
+    schedule:
+      type: quarterly
+      due_months: [1, 4, 7, 10]
+      due_days: [30, 20, 20, 20]
+    documents:
+      - "Facturas y justificantes de la operación"
+      - "Libro registro de facturas emitidas y recibidas"
+      - "NIF-IVA del proveedor o cliente"
+      - "Justificante de transporte o entrega"
+    notes: "No es una obligación periódica: se presenta cuando concurre una operación no incluida en el 303. En recargo de equivalencia o actividad exenta es habitual por adquisiciones intracomunitarias, inversión del sujeto pasivo o entregas de inmuebles. Plazo general: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Para adquisiciones intracomunitarias de medios de transporte nuevos, 30 días desde la operación y antes de la matriculación."
 
   - code: "390"
     name: "Resumen anual de IVA"
@@ -65,16 +91,18 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G412.shtml"
     auto: true
     applies:
+      vat_regimes: ["general"]
       economic_activity: true
+      uses_sii: false
     schedule:
       type: annual
       due_months: [1]
-      due_day: 31
+      due_day: 30
       period_year_offset: -1
     documents:
       - "Modelos 303 del ejercicio"
       - "Libro registro de facturas emitidas y recibidas"
-    notes: "Plazo: 1-31 de enero. Algunos sujetos están exonerados; revisa el supuesto."
+    notes: "Plazo: 1-30 de enero. Exonerados: quienes realizan exclusivamente régimen simplificado, arrendamiento de inmuebles urbanos o llevan los libros registro en el SII. Si compaginas regímenes, revisa el supuesto."
 
   - code: "130"
     name: "Pago fraccionado de IRPF (estimación directa)"
@@ -88,17 +116,18 @@ models:
       legal_forms: ["autonomo"]
       irpf_methods: ["directa"]
       economic_activity: true
+      exempt_from_irpf_fractional_payment: false
     schedule:
       type: quarterly
       due_months: [1, 4, 7, 10]
-      due_day: 20
+      due_days: [30, 20, 20, 20]
     documents:
       - "Libro registro de ingresos y gastos"
       - "Facturas emitidas y recibidas"
       - "Nóminas y seguros sociales"
       - "Retenciones soportadas o practicadas"
       - "Amortizaciones"
-    notes: "20% del rendimiento neto acumulado, menos retenciones y pagos previos."
+    notes: "20% del rendimiento neto acumulado, menos retenciones y pagos previos. Plazo: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. No aplica si al menos el 70 % de los ingresos profesionales del año anterior estuvo sujeto a retención o ingreso a cuenta."
 
   - code: "131"
     name: "Pago fraccionado de IRPF (módulos)"
@@ -112,15 +141,16 @@ models:
       legal_forms: ["autonomo"]
       irpf_methods: ["modulos"]
       economic_activity: true
+      exempt_from_irpf_fractional_payment: false
     schedule:
       type: quarterly
       due_months: [1, 4, 7, 10]
-      due_day: 20
+      due_days: [30, 20, 20, 20]
     documents:
       - "Datos de módulos: índices, módulos y coeficientes"
       - "Libro registro de facturas emitidas y recibidas"
       - "Justificantes de gastos, si aplica"
-    notes: "Sujeto a los módulos y coeficientes del ejercicio."
+    notes: "Sujeto a los módulos y coeficientes del ejercicio. Plazo: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. No aplica si al menos el 70 % de los ingresos agrícolas, ganaderos o forestales del año anterior estuvo sujeto a retención o ingreso a cuenta."
 
   - code: "111"
     name: "Retenciones e ingresos a cuenta del trabajo y profesionales"
@@ -131,7 +161,7 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GH01.shtml"
     auto: true
     applies:
-      has_employees: true
+      withholds_income: true
     schedule:
       type: quarterly
       due_months: [1, 4, 7, 10]
@@ -140,7 +170,7 @@ models:
       - "Nóminas y relación de perceptores"
       - "Facturas de profesionales con retención"
       - "Justificantes de las retenciones practicadas"
-    notes: "Mensual para grandes empresas y obligados al SII."
+    notes: "Incluye retenciones por nóminas y por facturas de profesionales, aunque no haya empleados. No se presenta un trimestre sin rentas sujetas a retención. Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€."
 
   - code: "190"
     name: "Resumen anual de retenciones del trabajo y profesionales"
@@ -151,7 +181,7 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI10.shtml"
     auto: true
     applies:
-      has_employees: true
+      withholds_income: true
     schedule:
       type: annual
       due_months: [1]
@@ -161,7 +191,7 @@ models:
       - "Modelos 111 del ejercicio"
       - "Certificados de retención emitidos"
       - "Nóminas y datos de perceptores"
-    notes: "Plazo: 1-31 de enero."
+    notes: "Se presenta si se ha presentado el modelo 111, aunque no haya empleados. Plazo: 1-31 de enero."
 
   - code: "115"
     name: "Retenciones por arrendamiento de inmuebles"
@@ -181,7 +211,7 @@ models:
       - "Contratos de arrendamiento"
       - "Facturas o recibos de alquiler"
       - "Justificantes de las retenciones practicadas"
-    notes: "Mensual para grandes empresas y obligados al SII."
+    notes: "Plazo: 1-20 de abril, julio y octubre; 4T, 1-20 de enero. Mensual para grandes empresas, DCGC/UGGE y administraciones públicas con presupuesto superior a 6 M€."
 
   - code: "180"
     name: "Resumen anual de retenciones por arrendamiento"
@@ -280,18 +310,19 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI28.shtml"
     auto: true
     applies:
+      has_intracommunity_operations: true
       economic_activity: true
     schedule:
       type: quarterly
       due_months: [1, 4, 7, 10]
-      due_day: 20
+      due_days: [30, 20, 20, 20]
     documents:
       - "Facturas intracomunitarias"
       - "NIF-IVA de los clientes/proveedores"
       - "Libro registro de facturas emitidas y recibidas"
       - "Libro registro de operaciones intracomunitarias"
       - "Justificantes de transporte o entrega, si aplica"
-    notes: "Verifica los NIF-IVA en VIES antes de presentar. Mensual si se superan los umbrales o se está en SII."
+    notes: "Solo se presenta si hay entregas o adquisiciones intracomunitarias o transferencias en consigna; no se presenta en trimestres sin operaciones. Plazo trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Si las entregas de bienes y prestaciones de servicios superan 50.000 € en el trimestre actual o en cualquiera de los cuatro anteriores, la periodicidad es mensual: 1-20 del mes siguiente, julio hasta el 20 de septiembre y diciembre hasta el 30 de enero. El calendario genera la versión trimestral; si superas el umbral, cambia la periodicidad a mensual. Verifica los NIF-IVA en VIES antes de presentar."
 
   - code: "347"
     name: "Operaciones con terceras personas"
@@ -300,19 +331,20 @@ models:
     periodicity: "Anual"
     description: "Sirve para informar de las operaciones anuales con clientes y proveedores que superan 3.005,06 €. Hacienda lo usa para cruzar datos."
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/GI27.shtml"
-    auto: true
+    auto: false
     applies:
       economic_activity: true
+      uses_sii: false
     schedule:
       type: annual
       due_months: [2]
-      due_day: 28
+      due_day: 0
       period_year_offset: -1
     documents:
       - "Facturas emitidas y recibidas del ejercicio"
       - "Resumen anual por cliente y proveedor"
       - "Datos fiscales de clientes y proveedores"
-    notes: "Plazo: 1-28 de febrero (29 en año bisiesto)."
+    notes: "Solo si las operaciones con una misma persona o entidad superan 3.005,06 € al año, con las exclusiones legales. No lo presentan los obligados al SII. Plazo: todo febrero; si el último día cae en fin de semana, se traslada al siguiente día hábil."
 
   - code: "200"
     name: "Impuesto sobre Sociedades"
@@ -459,12 +491,13 @@ models:
     url: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G323.shtml"
     auto: false
     applies:
+      legal_forms: ["sl"]
       economic_activity: true
     documents:
       - "Modelo 840"
       - "Datos de la actividad: epígrafe IAE, CNAE y fecha de inicio"
       - "Datos del local: dirección y superficie"
-    notes: "No aplica a autónomos exentos por facturación o inicio de actividad en los términos legales."
+    notes: "Las personas físicas están exentas del IAE. En sociedades, solo aplica si el INCN es igual o superior a 1.000.000 € o no concurre exención; los dos primeros ejercicios están exentos. Si estás exento, el alta censal se resuelve con el 036."
 
   - code: "184"
     name: "Declaración informativa de entidades en régimen de atribución de rentas"

@@ -81,6 +81,45 @@ func TestTaxpayerInputRetaProfile(t *testing.T) {
 	})
 }
 
+func TestTaxpayerInputProfileFlags(t *testing.T) {
+	in := validRetaInput()
+	in.HasIntracommunityOperations = true
+	in.WithholdsProfessionalIncome = true
+	in.ExemptFromIRPFFractionalPayment = true
+	in.UsesSII = true
+	got, msg := in.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected validation error: %s", msg)
+	}
+	if !got.HasIntracommunityOperations || !got.WithholdsProfessionalIncome ||
+		!got.ExemptFromIRPFFractionalPayment || !got.UsesSII {
+		t.Fatalf("profile flags were not copied: %+v", got)
+	}
+
+	in.LegalForm = "sl"
+	got, msg = in.toDomain()
+	if msg != "" {
+		t.Fatalf("unexpected validation error: %s", msg)
+	}
+	if got.ExemptFromIRPFFractionalPayment {
+		t.Fatal("SL should not keep the IRPF fractional-payment exemption")
+	}
+}
+
+func TestTaxpayerProfileChangedDetectsFlags(t *testing.T) {
+	before, _ := validRetaInput().toDomain()
+	after := before
+	after.HasIntracommunityOperations = true
+	if !taxpayerProfileChanged(before, after) {
+		t.Fatal("intracommunity operations should trigger a calendar recalculation")
+	}
+	after = before
+	after.UsesSII = true
+	if !taxpayerProfileChanged(before, after) {
+		t.Fatal("SII should trigger a calendar recalculation")
+	}
+}
+
 func TestTaxpayerInputMultipleCNAEs(t *testing.T) {
 	in := validRetaInput()
 	in.CNAEs = []string{"7022", " 6201 ", "7022", ""}

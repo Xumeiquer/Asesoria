@@ -16,21 +16,26 @@ import (
 )
 
 type taxpayerInput struct {
-	NIF              string   `json:"nif"`
-	Name             string   `json:"name"`
-	LegalForm        string   `json:"legal_form"`
-	Email            string   `json:"email"`
-	Phone            string   `json:"phone"`
-	VATRegime        string   `json:"vat_regime"`
-	IRPFMethod       string   `json:"irpf_method"`
-	HasEmployees     bool     `json:"has_employees"`
-	HasRentals       bool     `json:"has_rentals"`
-	EconomicActivity *bool    `json:"economic_activity"`
-	CNAEs            []string `json:"cnaes"`
-	CNAE             string   `json:"cnae"` // legacy single-code clients
-	FiscalYearEnd    string   `json:"fiscal_year_end"`
-	IBAN             string   `json:"iban"`
-	ActivityStart    string   `json:"activity_start"`
+	NIF              string `json:"nif"`
+	Name             string `json:"name"`
+	LegalForm        string `json:"legal_form"`
+	Email            string `json:"email"`
+	Phone            string `json:"phone"`
+	VATRegime        string `json:"vat_regime"`
+	IRPFMethod       string `json:"irpf_method"`
+	HasEmployees     bool   `json:"has_employees"`
+	HasRentals       bool   `json:"has_rentals"`
+	EconomicActivity *bool  `json:"economic_activity"`
+
+	HasIntracommunityOperations     bool     `json:"has_intracommunity_operations"`
+	WithholdsProfessionalIncome     bool     `json:"withholds_professional_income"`
+	ExemptFromIRPFFractionalPayment bool     `json:"exempt_from_irpf_fractional_payment"`
+	UsesSII                         bool     `json:"uses_sii"`
+	CNAEs                           []string `json:"cnaes"`
+	CNAE                            string   `json:"cnae"` // legacy single-code clients
+	FiscalYearEnd                   string   `json:"fiscal_year_end"`
+	IBAN                            string   `json:"iban"`
+	ActivityStart                   string   `json:"activity_start"`
 
 	RetaBaseCents      int64  `json:"reta_base_cents"`
 	RetaBaseFrom       string `json:"reta_base_from"`
@@ -93,6 +98,10 @@ func taxpayerProfileChanged(before, after domain.Taxpayer) bool {
 		before.IRPFMethod != after.IRPFMethod ||
 		before.HasEmployees != after.HasEmployees ||
 		before.HasRentals != after.HasRentals ||
+		before.HasIntracommunityOperations != after.HasIntracommunityOperations ||
+		before.WithholdsProfessionalIncome != after.WithholdsProfessionalIncome ||
+		before.ExemptFromIRPFFractionalPayment != after.ExemptFromIRPFFractionalPayment ||
+		before.UsesSII != after.UsesSII ||
 		before.EconomicActivity != after.EconomicActivity ||
 		before.FiscalYearEnd != after.FiscalYearEnd ||
 		before.ActivityStart != after.ActivityStart
@@ -256,10 +265,16 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 		HasEmployees:     in.HasEmployees,
 		HasRentals:       in.HasRentals,
 		EconomicActivity: true,
-		CNAEs:            normalizeCNAEs(append(in.CNAEs, in.CNAE)),
-		FiscalYearEnd:    strings.TrimSpace(in.FiscalYearEnd),
-		IBAN:             normalizeIBAN(in.IBAN),
-		ActivityStart:    strings.TrimSpace(in.ActivityStart),
+
+		HasIntracommunityOperations:     in.HasIntracommunityOperations,
+		WithholdsProfessionalIncome:     in.WithholdsProfessionalIncome,
+		ExemptFromIRPFFractionalPayment: in.ExemptFromIRPFFractionalPayment,
+		UsesSII:                         in.UsesSII,
+
+		CNAEs:         normalizeCNAEs(append(in.CNAEs, in.CNAE)),
+		FiscalYearEnd: strings.TrimSpace(in.FiscalYearEnd),
+		IBAN:          normalizeIBAN(in.IBAN),
+		ActivityStart: strings.TrimSpace(in.ActivityStart),
 
 		RetaBaseCents:      in.RetaBaseCents,
 		RetaBaseFrom:       strings.TrimSpace(in.RetaBaseFrom),
@@ -297,6 +312,7 @@ func (in taxpayerInput) toDomain() (domain.Taxpayer, string) {
 	}
 	if t.LegalForm == domain.LegalFormSL {
 		t.EconomicActivity = true
+		t.ExemptFromIRPFFractionalPayment = false
 		t.RetaBaseCents = 0
 		t.RetaBaseFrom = ""
 		t.RetaNetIncomeCents = 0

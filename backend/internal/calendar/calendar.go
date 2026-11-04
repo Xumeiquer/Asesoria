@@ -29,7 +29,7 @@ func (g *Generator) Generate(t domain.Taxpayer, year int) []domain.Filing {
 		if !m.AppliesTo(t) {
 			continue
 		}
-		for _, p := range g.periodsFor(m, year) {
+		for _, p := range g.periodsFor(m, t, year) {
 			if t.ActivityStart != "" && p.end.Format("2006-01-02") < t.ActivityStart {
 				continue
 			}
@@ -56,37 +56,17 @@ type period struct {
 	due   time.Time
 }
 
-func (g *Generator) periodsFor(m catalog.Model, year int) []period {
+func (g *Generator) periodsFor(m catalog.Model, t domain.Taxpayer, year int) []period {
 	s := m.Schedule
+	if s == nil {
+		return nil
+	}
+	if s.SIIMonthly && t.UsesSII {
+		return g.monthlyPeriods(s, year)
+	}
 	switch s.Type {
 	case "monthly":
-		offset := -1
-		if s.PeriodOffsetMonths != nil {
-			offset = *s.PeriodOffsetMonths
-		}
-		out := make([]period, 0, 12)
-		for dueMonth := 1; dueMonth <= 12; dueMonth++ {
-			periodMonth := dueMonth + offset
-			periodYear := year
-			for periodMonth < 1 {
-				periodMonth += 12
-				periodYear--
-			}
-			for periodMonth > 12 {
-				periodMonth -= 12
-				periodYear++
-			}
-			start := time.Date(periodYear, time.Month(periodMonth), 1, 0, 0, 0, 0, time.UTC)
-			end := lastDay(periodYear, periodMonth)
-			due := dueDate(year, dueMonth, s.DueDay)
-			out = append(out, period{
-				label: fmt.Sprintf("%s %d", monthNames[periodMonth], periodYear),
-				start: start,
-				end:   end,
-				due:   due,
-			})
-		}
-		return out
+		return g.monthlyPeriods(s, year)
 
 	case "quarterly":
 		months := s.DueMonths
@@ -94,7 +74,7 @@ func (g *Generator) periodsFor(m catalog.Model, year int) []period {
 			months = []int{1, 4, 7, 10}
 		}
 		out := make([]period, 0, len(months))
-		for _, dueMonth := range months {
+		for i, dueMonth := range months {
 			endMonth := dueMonth - 1
 			endYear := year
 			if endMonth == 0 {
@@ -107,12 +87,16 @@ func (g *Generator) periodsFor(m catalog.Model, year int) []period {
 				startMonth += 12
 				startYear--
 			}
+			day := s.DueDay
+			if i < len(s.DueDays) {
+				day = s.DueDays[i]
+			}
 			quarter := (endMonth-1)/3 + 1
 			out = append(out, period{
 				label: fmt.Sprintf("%dT %d", quarter, endYear),
 				start: time.Date(startYear, time.Month(startMonth), 1, 0, 0, 0, 0, time.UTC),
 				end:   lastDay(endYear, endMonth),
-				due:   dueDate(year, dueMonth, s.DueDay),
+				due:   dueDate(year, dueMonth, day),
 			})
 		}
 		return out
@@ -150,6 +134,39 @@ func (g *Generator) periodsFor(m catalog.Model, year int) []period {
 		return out
 	}
 	return nil
+}
+
+func (g *Generator) monthlyPeriods(s *catalog.Schedule, year int) []period {
+	offset := -1
+	if s.PeriodOffsetMonths != nil {
+		offset = *s.PeriodOffsetMonths
+	}
+	out := make([]period, 0, 12)
+	for dueMonth := 1; dueMonth <= 12; dueMonth++ {
+		periodMonth := dueMonth + offset
+		periodYear := year
+		for periodMonth < 1 {
+			periodMonth += 12
+			periodYear--
+		}
+		for periodMonth > 12 {
+			periodMonth -= 12
+			periodYear++
+		}
+		day := s.DueDay
+		if len(s.MonthlyDueDays) == 12 {
+			day = s.MonthlyDueDays[dueMonth-1]
+		}
+		start := time.Date(periodYear, time.Month(periodMonth), 1, 0, 0, 0, 0, time.UTC)
+		end := lastDay(periodYear, periodMonth)
+		out = append(out, period{
+			label: fmt.Sprintf("%s %d", monthNames[periodMonth], periodYear),
+			start: start,
+			end:   end,
+			due:   dueDate(year, dueMonth, day),
+		})
+	}
+	return out
 }
 
 func dueDate(year, month, day int) time.Time {

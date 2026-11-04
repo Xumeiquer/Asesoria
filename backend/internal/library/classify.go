@@ -34,15 +34,16 @@ var (
 	datePattern   = regexp.MustCompile(`(?i)\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\b`)
 	isoPattern    = regexp.MustCompile(`\b(20\d{2})-(\d{1,2})-(\d{1,2})\b`)
 	amountPattern = regexp.MustCompile(`(?i)(?:total(?:\s+factura)?|importe\s+total|base\s+imponible)[^\d\n]{0,30}([\d.]+,\d{2}|\d+(?:\.\d{3})*\.\d{2})`)
-	modelPattern  = regexp.MustCompile(`\b(303|130|111|115|180|190|390|347|349|202|200|123|131|184|193|216|296|714|720|721)\b`)
+	modelPattern  = regexp.MustCompile(`\b(303|309|130|111|115|180|190|390|347|349|202|200|123|131|184|193|216|296|714|720|721)\b`)
 	periodFirst   = regexp.MustCompile(`(?i)\b([1-4]T)\s*[-/]?\s*(20\d{2})\b`)
 	periodLast    = regexp.MustCompile(`(?i)\b(20\d{2})\s*[-/]?\s*([1-4]T)\b`)
 	yearPattern   = regexp.MustCompile(`\b(20\d{2})\b`)
 )
 
 var annualModels = map[string]bool{
-	"180": true, "190": true, "193": true, "347": true, "349": true,
-	"390": true, "714": true, "720": true, "721": true, "200": true,
+	"180": true, "184": true, "190": true, "193": true, "296": true,
+	"347": true, "390": true, "714": true, "720": true, "721": true,
+	"200": true,
 }
 
 // Classify inspects the relative path and extracted text. The folder taxonomy

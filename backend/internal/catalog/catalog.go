@@ -45,6 +45,11 @@ type Applies struct {
 	HasEmployees     *bool    `yaml:"has_employees,omitempty" json:"has_employees,omitempty"`
 	HasRentals       *bool    `yaml:"has_rentals,omitempty" json:"has_rentals,omitempty"`
 	EconomicActivity *bool    `yaml:"economic_activity,omitempty" json:"economic_activity,omitempty"`
+
+	HasIntracommunityOperations     *bool `yaml:"has_intracommunity_operations,omitempty" json:"has_intracommunity_operations,omitempty"`
+	WithholdsIncome                 *bool `yaml:"withholds_income,omitempty" json:"withholds_income,omitempty"`
+	ExemptFromIRPFFractionalPayment *bool `yaml:"exempt_from_irpf_fractional_payment,omitempty" json:"exempt_from_irpf_fractional_payment,omitempty"`
+	UsesSII                         *bool `yaml:"uses_sii,omitempty" json:"uses_sii,omitempty"`
 }
 
 // Schedule defines when an obligation is due and which period it covers.
@@ -55,6 +60,15 @@ type Schedule struct {
 	DueMonths []int `yaml:"due_months,omitempty" json:"due_months,omitempty"`
 	// DueDay is 0 for "last day of month".
 	DueDay int `yaml:"due_day" json:"due_day"`
+	// DueDays overrides DueDay for each entry in DueMonths. It is used when
+	// the last quarter has a different deadline (for example, 30 January).
+	DueDays []int `yaml:"due_days,omitempty" json:"due_days,omitempty"`
+	// SIIMonthly switches a quarterly schedule to monthly when the taxpayer
+	// keeps VAT ledgers through the AEAT SII.
+	SIIMonthly bool `yaml:"sii_monthly,omitempty" json:"sii_monthly,omitempty"`
+	// MonthlyDueDays overrides DueDay for each due month (January to
+	// December) when SIIMonthly is used. 0 means the last day of the month.
+	MonthlyDueDays []int `yaml:"monthly_due_days,omitempty" json:"monthly_due_days,omitempty"`
 	// PeriodOffsetMonths is used by monthly schedules (default -1).
 	PeriodOffsetMonths *int `yaml:"period_offset_months,omitempty" json:"period_offset_months,omitempty"`
 	// PeriodYearOffset is used by annual schedules (default -1).
@@ -101,6 +115,17 @@ func Load() (*Catalog, error) {
 	for i := range f.Models {
 		if f.Models[i].UpdatedAt == "" {
 			f.Models[i].UpdatedAt = f.UpdatedAt
+		}
+		if s := f.Models[i].Schedule; s != nil {
+			if len(s.DueDays) > 0 && len(s.DueMonths) > 0 && len(s.DueDays) != len(s.DueMonths) {
+				return nil, fmt.Errorf("model %s has %d due_days for %d due_months", f.Models[i].Code, len(s.DueDays), len(s.DueMonths))
+			}
+			if len(s.MonthlyDueDays) > 0 && len(s.MonthlyDueDays) != 12 {
+				return nil, fmt.Errorf("model %s has %d monthly_due_days, want 12", f.Models[i].Code, len(s.MonthlyDueDays))
+			}
+			if s.SIIMonthly && s.Type != "quarterly" {
+				return nil, fmt.Errorf("model %s uses sii_monthly with a %s schedule", f.Models[i].Code, s.Type)
+			}
 		}
 		f.Models[i].DocumentRequirements = make([]docmeta.Requirement, 0, len(f.Models[i].Documents))
 		for _, label := range f.Models[i].Documents {
@@ -154,6 +179,21 @@ func (m Model) AppliesTo(t domain.Taxpayer) bool {
 		return false
 	}
 	if a.HasRentals != nil && *a.HasRentals != t.HasRentals {
+		return false
+	}
+	if a.HasIntracommunityOperations != nil && *a.HasIntracommunityOperations != t.HasIntracommunityOperations {
+		return false
+	}
+	if a.WithholdsIncome != nil {
+		withholds := t.HasEmployees || t.WithholdsProfessionalIncome
+		if *a.WithholdsIncome != withholds {
+			return false
+		}
+	}
+	if a.ExemptFromIRPFFractionalPayment != nil && *a.ExemptFromIRPFFractionalPayment != t.ExemptFromIRPFFractionalPayment {
+		return false
+	}
+	if a.UsesSII != nil && *a.UsesSII != t.UsesSII {
 		return false
 	}
 	if a.EconomicActivity != nil && *a.EconomicActivity != t.EconomicActivity {

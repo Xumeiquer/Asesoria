@@ -13,6 +13,10 @@ export interface Taxpayer {
   has_employees: boolean
   has_rentals: boolean
   economic_activity: boolean
+  has_intracommunity_operations: boolean
+  withholds_professional_income: boolean
+  exempt_from_irpf_fractional_payment: boolean
+  uses_sii: boolean
   cnaes: string[]
   fiscal_year_end: string
   iban: string
@@ -161,6 +165,9 @@ export interface Schedule {
   type: string
   due_months?: number[]
   due_day?: number
+  due_days?: number[]
+  sii_monthly?: boolean
+  monthly_due_days?: number[]
   dues?: Array<{ month: number; day: number; period_start: string; period_end: string; period_year_offset: number }>
 }
 
