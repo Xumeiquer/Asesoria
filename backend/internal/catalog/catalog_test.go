@@ -187,6 +187,22 @@ func TestApplicabilityForAutonomoProfiles(t *testing.T) {
 	})
 }
 
+func TestModelsWithManualChecks(t *testing.T) {
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, code := range []string{"347", "840", "349"} {
+		m, ok := c.Get(code)
+		if !ok {
+			t.Fatalf("model %s not found", code)
+		}
+		if strings.TrimSpace(m.ManualCheck) == "" {
+			t.Errorf("%s should explain the manual check", code)
+		}
+	}
+}
+
 func TestConditionalModelsAreManual(t *testing.T) {
 	c, err := Load()
 	if err != nil {

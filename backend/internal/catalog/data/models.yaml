@@ -328,6 +328,7 @@ models:
       - "Libro registro de operaciones intracomunitarias"
       - "Justificantes de transporte o entrega, si aplica"
     notes: "Solo se presenta si hay entregas o adquisiciones intracomunitarias o transferencias en consigna; no se presenta en trimestres sin operaciones. Plazo trimestral: 1-20 de abril, julio y octubre; 4T, 1-30 de enero. Si las entregas de bienes y prestaciones de servicios superan 50.000 € en el trimestre actual o en cualquiera de los cuatro anteriores, la periodicidad es mensual: 1-20 del mes siguiente, julio hasta el 20 de septiembre y diciembre hasta el 30 de enero. Marca \"349 mensual\" en el perfil para que el calendario se expanda mensualmente. Verifica los NIF-IVA en VIES antes de presentar."
+    manual_check: "Comprueba si tus entregas de bienes o prestaciones de servicios han superado 50.000 € en el trimestre actual o en cualquiera de los cuatro anteriores. Si es así, marca \"349 mensual\" en el perfil. No presentes trimestres sin operaciones y valida los NIF-IVA en VIES."
 
   - code: "347"
     name: "Operaciones con terceras personas"
@@ -350,6 +351,7 @@ models:
       - "Resumen anual por cliente y proveedor"
       - "Datos fiscales de clientes y proveedores"
     notes: "Solo si las operaciones con una misma persona o entidad superan 3.005,06 € al año, con las exclusiones legales. No lo presentan los obligados al SII. Plazo: todo febrero; si el último día cae en fin de semana, se traslada al siguiente día hábil."
+    manual_check: "Comprueba con tus facturas y operaciones del ejercicio si algún cliente o proveedor supera 3.005,06 €. La aplicación no calcula ese umbral ni aplica las exclusiones legales; el modelo es manual."
 
   - code: "200"
     name: "Impuesto sobre Sociedades"
@@ -503,6 +505,7 @@ models:
       - "Datos de la actividad: epígrafe IAE, CNAE y fecha de inicio"
       - "Datos del local: dirección y superficie"
     notes: "Las personas físicas están exentas del IAE. En sociedades, solo aplica si el INCN es igual o superior a 1.000.000 € o no concurre exención; los dos primeros ejercicios están exentos. Si estás exento, el alta censal se resuelve con el 036."
+    manual_check: "Comprueba el INCN de la sociedad y si concurre alguna exención antes de presentar. La aplicación no calcula el INCN ni los dos primeros ejercicios exentos; el modelo es manual."
 
   - code: "184"
     name: "Declaración informativa de entidades en régimen de atribución de rentas"

@@ -204,6 +204,7 @@ export interface Model {
   documents: string[]
   document_requirements: DocumentRequirement[]
   notes: string
+  manual_check?: string
   applicable: boolean
   calculator: boolean
 }

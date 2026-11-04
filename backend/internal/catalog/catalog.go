@@ -35,6 +35,9 @@ type Model struct {
 	// item to the document type and library folder used by uploads.
 	DocumentRequirements []docmeta.Requirement `yaml:"-" json:"document_requirements"`
 	Notes                string                `yaml:"notes" json:"notes"`
+	// ManualCheck is an action-oriented warning for checks the application
+	// cannot automate, such as turnover thresholds or IAE exemptions.
+	ManualCheck string `yaml:"manual_check,omitempty" json:"manual_check,omitempty"`
 }
 
 // Applies is a set of conditions. Empty fields mean "no constraint".
